@@ -155,7 +155,7 @@ def serialConfig(configFileName):
             Dataport.reset_input_buffer()
             resetParserBuffer()
 
-            response = send_cli_command(cmd, delay=0.5, timeout=2.0)
+            response = send_cli_command(cmd, delay=0.1, timeout=0.5)
 
             # Erste unvollständige Frames nach Start verwerfen.
             time.sleep(0.3)
@@ -163,17 +163,17 @@ def serialConfig(configFileName):
             resetParserBuffer()
 
         elif cmd == "sensorStop":
-            response = send_cli_command(cmd, delay=0.3, timeout=1.0)
+            response = send_cli_command(cmd, delay=0.05, timeout=0.3)
             Dataport.reset_input_buffer()
             resetParserBuffer()
 
         elif cmd == "flushCfg":
-            response = send_cli_command(cmd, delay=0.2, timeout=1.0)
+            response = send_cli_command(cmd, delay=0.05, timeout=0.3)
             Dataport.reset_input_buffer()
             resetParserBuffer()
 
         else:
-            response = send_cli_command(cmd, delay=0.05, timeout=0.7)
+            response = send_cli_command(cmd, delay=0.05, timeout=0.3)
 
     return CLIport, Dataport
 
