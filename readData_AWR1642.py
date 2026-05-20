@@ -100,6 +100,7 @@ def send_cli_command(command, delay=0.05, timeout=1.0):
 
     return response
 
+
 def serialConfig(configFileName):
     """
     Öffnet die seriellen Schnittstellen zum AWR1642-Radarboard und sendet die
@@ -181,6 +182,7 @@ def serialConfig(configFileName):
 # CONFIG PARSING
 # ------------------------------------------------------------------
 
+
 def parseConfigFile(configFileName):
     """
     Liest die wichtigsten Radarparameter aus der cfg-Datei und berechnet daraus
@@ -244,21 +246,15 @@ def parseConfigFile(configFileName):
     configParameters["numDopplerBins"] = numChirpsPerFrame / numTxAnt
     configParameters["numRangeBins"] = numAdcSamplesRoundTo2
 
-    configParameters["rangeResolutionMeters"] = (
-        3e8 * digOutSampleRate * 1e3
-    ) / (
+    configParameters["rangeResolutionMeters"] = (3e8 * digOutSampleRate * 1e3) / (
         2 * freqSlopeConst * 1e12 * numAdcSamples
     )
 
-    configParameters["rangeIdxToMeters"] = (
-        3e8 * digOutSampleRate * 1e3
-    ) / (
+    configParameters["rangeIdxToMeters"] = (3e8 * digOutSampleRate * 1e3) / (
         2 * freqSlopeConst * 1e12 * configParameters["numRangeBins"]
     )
 
-    configParameters["dopplerResolutionMps"] = (
-        3e8
-    ) / (
+    configParameters["dopplerResolutionMps"] = (3e8) / (
         2
         * startFreq
         * 1e9
@@ -268,21 +264,10 @@ def parseConfigFile(configFileName):
         * numTxAnt
     )
 
-    configParameters["maxRange"] = (
-        300 * 0.9 * digOutSampleRate
-    ) / (
-        2 * freqSlopeConst * 1e3
-    )
+    configParameters["maxRange"] = (300 * 0.9 * digOutSampleRate) / (2 * freqSlopeConst * 1e3)
 
-    configParameters["maxVelocity"] = (
-        3e8
-    ) / (
-        4
-        * startFreq
-        * 1e9
-        * (idleTime + rampEndTime)
-        * 1e-6
-        * numTxAnt
+    configParameters["maxVelocity"] = (3e8) / (
+        4 * startFreq * 1e9 * (idleTime + rampEndTime) * 1e-6 * numTxAnt
     )
 
     return configParameters
@@ -291,6 +276,7 @@ def parseConfigFile(configFileName):
 # ------------------------------------------------------------------
 # BYTE CONVERSION
 # ------------------------------------------------------------------
+
 
 def bytes_to_uint16(byteBuffer, idx):
     """
@@ -334,6 +320,7 @@ def bytes_to_int16(byteBuffer, idx):
 # ------------------------------------------------------------------
 # UART PARSING
 # ------------------------------------------------------------------
+
 
 def readAndParseData16xx(Dataport, configParameters):
     """
@@ -388,7 +375,7 @@ def readAndParseData16xx(Dataport, configParameters):
     byteCount = len(byteVec)
 
     if (byteBufferLength + byteCount) < maxBufferSize:
-        byteBuffer[byteBufferLength:byteBufferLength + byteCount] = byteVec[:byteCount]
+        byteBuffer[byteBufferLength : byteBufferLength + byteCount] = byteVec[:byteCount]
         byteBufferLength += byteCount
 
     if byteBufferLength > 16:
@@ -396,17 +383,18 @@ def readAndParseData16xx(Dataport, configParameters):
 
         startIdx = []
         for loc in possibleLocs:
-            check = byteBuffer[loc:loc + 8]
+            check = byteBuffer[loc : loc + 8]
 
             if np.all(check == magicWord):
                 startIdx.append(loc)
 
         if startIdx:
             if startIdx[0] > 0 and startIdx[0] < byteBufferLength:
-                byteBuffer[:byteBufferLength - startIdx[0]] = byteBuffer[startIdx[0]:byteBufferLength]
-                byteBuffer[byteBufferLength - startIdx[0]:] = np.zeros(
-                    len(byteBuffer[byteBufferLength - startIdx[0]:]),
-                    dtype="uint8"
+                byteBuffer[: byteBufferLength - startIdx[0]] = byteBuffer[
+                    startIdx[0] : byteBufferLength
+                ]
+                byteBuffer[byteBufferLength - startIdx[0] :] = np.zeros(
+                    len(byteBuffer[byteBufferLength - startIdx[0] :]), dtype="uint8"
                 )
                 byteBufferLength -= startIdx[0]
 
@@ -415,7 +403,7 @@ def readAndParseData16xx(Dataport, configParameters):
 
             word = [1, 2**8, 2**16, 2**24]
 
-            totalPacketLen = np.matmul(byteBuffer[12:12 + 4], word)
+            totalPacketLen = np.matmul(byteBuffer[12 : 12 + 4], word)
 
             if (byteBufferLength >= totalPacketLen) and (byteBufferLength != 0):
                 magicOK = 1
@@ -425,41 +413,41 @@ def readAndParseData16xx(Dataport, configParameters):
 
         idX = 0
 
-        magicNumber = byteBuffer[idX:idX + 8]
+        magicNumber = byteBuffer[idX : idX + 8]
         idX += 8
 
-        version = format(np.matmul(byteBuffer[idX:idX + 4], word), "x")
+        version = format(np.matmul(byteBuffer[idX : idX + 4], word), "x")
         idX += 4
 
-        totalPacketLen = np.matmul(byteBuffer[idX:idX + 4], word)
+        totalPacketLen = np.matmul(byteBuffer[idX : idX + 4], word)
         idX += 4
 
-        platform = format(np.matmul(byteBuffer[idX:idX + 4], word), "x")
+        platform = format(np.matmul(byteBuffer[idX : idX + 4], word), "x")
         idX += 4
 
-        frameNumber = np.matmul(byteBuffer[idX:idX + 4], word)
+        frameNumber = np.matmul(byteBuffer[idX : idX + 4], word)
         idX += 4
 
-        timeCpuCycles = np.matmul(byteBuffer[idX:idX + 4], word)
+        timeCpuCycles = np.matmul(byteBuffer[idX : idX + 4], word)
         idX += 4
 
-        numDetectedObj = np.matmul(byteBuffer[idX:idX + 4], word)
+        numDetectedObj = np.matmul(byteBuffer[idX : idX + 4], word)
         idX += 4
 
-        numTLVs = np.matmul(byteBuffer[idX:idX + 4], word)
+        numTLVs = np.matmul(byteBuffer[idX : idX + 4], word)
         idX += 4
 
-        subFrameNumber = np.matmul(byteBuffer[idX:idX + 4], word)
+        subFrameNumber = np.matmul(byteBuffer[idX : idX + 4], word)
         idX += 4
 
         for tlvIdx in range(numTLVs):
             word = [1, 2**8, 2**16, 2**24]
 
             try:
-                tlv_type = np.matmul(byteBuffer[idX:idX + 4], word)
+                tlv_type = np.matmul(byteBuffer[idX : idX + 4], word)
                 idX += 4
 
-                tlv_length = np.matmul(byteBuffer[idX:idX + 4], word)
+                tlv_length = np.matmul(byteBuffer[idX : idX + 4], word)
                 idX += 4
 
             except Exception:
@@ -476,7 +464,7 @@ def readAndParseData16xx(Dataport, configParameters):
                     print("Ungültiges xyzQFormat:", xyzQ)
                     return 0, frameNumber, {}
 
-                tlv_xyzQFormat = 2 ** xyzQ
+                tlv_xyzQFormat = 2**xyzQ
 
                 if tlv_numObj < 0 or tlv_numObj > 200:
                     print("Ungültige Objektanzahl:", tlv_numObj)
@@ -545,10 +533,7 @@ def readAndParseData16xx(Dataport, configParameters):
             if remainingBytes > 0:
                 byteBuffer[:remainingBytes] = byteBuffer[shiftSize:byteBufferLength]
 
-            byteBuffer[remainingBytes:] = np.zeros(
-                len(byteBuffer[remainingBytes:]),
-                dtype="uint8"
-            )
+            byteBuffer[remainingBytes:] = np.zeros(len(byteBuffer[remainingBytes:]), dtype="uint8")
 
             byteBufferLength = remainingBytes
 
@@ -564,6 +549,7 @@ def readAndParseData16xx(Dataport, configParameters):
 # ------------------------------------------------------------------
 # PLOT UPDATE
 # ------------------------------------------------------------------
+
 
 def update():
     """
@@ -681,8 +667,3 @@ while True:
 
         print("Ports geschlossen.")
         break
-
-
-
-
-
