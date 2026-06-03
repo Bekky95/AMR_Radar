@@ -123,8 +123,8 @@ def serialConfig(configFileName):
 
     serialPort = serial_ports()
 
-    CLIport = serial.Serial(serialPort[1], 115200, timeout=0.2)
-    Dataport = serial.Serial(serialPort[0], 921600, timeout=0.05)
+    CLIport = serial.Serial(serialPort["config"], 115200, timeout=0.2)
+    Dataport = serial.Serial(serialPort["data"], 921600, timeout=0.05)
 
     CLIport.reset_input_buffer()
     CLIport.reset_output_buffer()

@@ -1,6 +1,22 @@
 import sys
 import glob
 import serial
+import re
+
+
+def autodetect(ports: list):
+    dataPattern = r"(COM8|ACM1)"
+    configPattern = r"(COM7|ACM0)"
+    result = {}
+    for port in ports:
+        if re.search(configPattern, port):
+            result["config"] = port
+            print("config", port)
+        elif re.search(dataPattern, port):
+            result["data"] = port
+            print("data", port)
+
+    return result
 
 
 def serial_ports():
@@ -29,7 +45,7 @@ def serial_ports():
             result.append(port)
         except (OSError, serial.SerialException):
             pass
-    return result
+    return autodetect(result)
 
 
 if __name__ == "__main__":
