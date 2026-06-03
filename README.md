@@ -1,7 +1,10 @@
 # Radar AWR1642 Ansteuerung
 *Projekt AMR - Ansteuerung AWR1642 Modul mithilfe von Python*
 
-## Wichtig
+## Setup 
+
+Das Board ist plug and play konfiguriert. Es muss keine Port-Configuration in den source Code geschrieben werden.
+Es werden Windows und Linux unterstützt. Es reicht den Radar mit USB anzuschließen.
 
 SW2 Button drücken, wenn man das Projekt laufen lassen will, damit Daten kommen
 
