@@ -2,6 +2,7 @@ import serial
 import time
 import numpy as np
 import pyqtgraph as pg
+from readPortAutomatically import serial_ports
 
 pg.setConfigOptions(useOpenGL=False, antialias=False)
 
@@ -120,8 +121,10 @@ def serialConfig(configFileName):
     global CLIport
     global Dataport
 
-    CLIport = serial.Serial("/dev/ttyACM0", 115200, timeout=0.2)
-    Dataport = serial.Serial("/dev/ttyACM1", 921600, timeout=0.05)
+    serialPort = serial_ports()
+
+    CLIport = serial.Serial(serialPort[1], 115200, timeout=0.2)
+    Dataport = serial.Serial(serialPort[0], 921600, timeout=0.05)
 
     CLIport.reset_input_buffer()
     CLIport.reset_output_buffer()
