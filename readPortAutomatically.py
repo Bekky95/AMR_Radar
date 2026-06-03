@@ -5,8 +5,8 @@ import re
 
 
 def autodetect(ports: list):
-    dataPattern = r"(COM8|ACM1)"
-    configPattern = r"(COM7|ACM0)"
+    dataPattern = r"(COM7|ACM1)"
+    configPattern = r"(COM8|ACM0)"
     result = {}
     for port in ports:
         if re.search(configPattern, port):
@@ -49,4 +49,14 @@ def serial_ports():
 
 
 if __name__ == "__main__":
-    print(serial_ports())
+    port_list = serial_ports()
+    print(port_list)
+
+    # if len(port_list) > 1:
+    #     for port in range(1, len(port_list)):
+    #         if int(port_list[port-1][-1])+1 == int(port_list[port][-1]):
+    #             print(f"aufsteigend")
+    #         else:
+    #             print("Nö")
+    # else:
+    #     print("Not enough Ports")

@@ -1,9 +1,51 @@
-# pip install pyusb
+# # pip install pyusb
+#
+# import usb.core
+# import usb.util
+#
+# dev = usb.core.find(idVendor=0x0451)  # TI Vendor ID
+# #dev.set_configuration()
+#
+# print(f"Port Number: {dev.port_number} Bus: {dev.bus}")
 
-import usb.core
-import usb.util
+# Source - https://stackoverflow.com/a/14224477
+# Posted by tfeldmann, modified by community. See post 'Timeline' for change history
+# Retrieved 2026-06-03, License - CC BY-SA 3.0
 
-dev = usb.core.find(idVendor=0x0451)  # TI Vendor ID
-#dev.set_configuration()
+import sys
+import glob
+import serial
 
-print(f"Port Number: {dev.port_number}")
+
+def serial_ports():
+    """ Lists serial port names
+
+        :raises EnvironmentError:
+            On unsupported or unknown platforms
+        :returns:
+            A list of the serial ports available on the system
+    """
+    if sys.platform.startswith('win'):
+        ports = ['COM%s' % (i + 1) for i in range(256)]
+    elif sys.platform.startswith('linux') or sys.platform.startswith('cygwin'):
+        # this excludes your current terminal "/dev/tty"
+        ports = glob.glob('/dev/tty[A-Za-z]*')
+    elif sys.platform.startswith('darwin'):
+        ports = glob.glob('/dev/tty.*')
+    else:
+        raise EnvironmentError('Unsupported platform')
+
+    result = []
+    for port in ports:
+        try:
+            s = serial.Serial(port)
+            s.close()
+            result.append(port)
+        except (OSError, serial.SerialException):
+            pass
+    return result
+
+
+if __name__ == '__main__':
+    print(serial_ports())
+
