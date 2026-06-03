@@ -58,8 +58,6 @@ def read_cli_response(timeout=1.0):
         if CLIport.in_waiting > 0:
             response += CLIport.read(CLIport.in_waiting).decode(errors="ignore")
 
-        time.sleep(0.01)
-
     return response.strip()
 
 
@@ -83,8 +81,6 @@ def send_cli_command(command, delay=0.05, timeout=1.0):
 
     CLIport.write((command + "\r\n").encode())
     CLIport.flush()
-
-    time.sleep(delay)
 
     response = read_cli_response(timeout=timeout)
 

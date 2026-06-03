@@ -15,6 +15,7 @@ from rclpy.action import ActionServer
 
 # from example_interfaces.srv import GetFLoat64, GetInt64
 from sensor_msgs.msg import PointCloud2, PointField
+from std_msgs.msg import Float32
 from std_msgs.msg import Header
 import sensor_msgs_py.point_cloud2 as pc2
 
@@ -83,21 +84,11 @@ class AWR1642Node(Node):
         self.declare_parameter("data_port", ports["data"])
         self.declare_parameter("timer_period", 0.033)
 
-        self._frame_id = (
-            self.get_parameter("frame_id").get_parameter_value().string_value
-        )
-        self._config_file = (
-            self.get_parameter("config_file").get_parameter_value().string_value
-        )
-        self._cli_port = (
-            self.get_parameter("cli_port").get_parameter_value().string_value
-        )
-        self._data_port = (
-            self.get_parameter("data_port").get_parameter_value().string_value
-        )
-        timer_period = (
-            self.get_parameter("timer_period").get_parameter_value().double_value
-        )
+        self._frame_id = self.get_parameter("frame_id").get_parameter_value().string_value
+        self._config_file = self.get_parameter("config_file").get_parameter_value().string_value
+        self._cli_port = self.get_parameter("cli_port").get_parameter_value().string_value
+        self._data_port = self.get_parameter("data_port").get_parameter_value().string_value
+        timer_period = self.get_parameter("timer_period").get_parameter_value().double_value
 
         # State
         self._cli = None
@@ -109,6 +100,7 @@ class AWR1642Node(Node):
 
         # Publisher
         self._pub = self.create_publisher(PointCloud2, "/radar", 10)
+        self._pubDist = self.create_publisher(Float32, "/distance", 10)
 
         # Init
         self.get_logger().info("initialisiere Radar")
@@ -131,7 +123,6 @@ class AWR1642Node(Node):
         self._flush_all()
         self._send_cmd("sensorStop", delay=0.1, timeout=1.0)
         self._flush_all()
-        time.sleep(0.3)
 
         with open(self._config_file, "r", encoding="utf-8") as f:
             lines = [l.rstrip() for l in f]
@@ -170,7 +161,6 @@ class AWR1642Node(Node):
         self._cli.reset_input_buffer()
         self._cli.write((cmd + "\r\n").encode())
         self._cli.flush()
-        time.sleep(delay)
 
         end, response = time.time() + timeout, ""
         while time.time() < end:
@@ -213,16 +203,12 @@ class AWR1642Node(Node):
         num_doppler = num_chirps / NUM_TX
 
         cfg["numRangeBins"] = num_adc_r2
-        cfg["rangeIdxToMeters"] = (3e8 * sample_rate * 1e3) / (
-            2 * freq_slope * 1e12 * num_adc_r2
-        )
+        cfg["rangeIdxToMeters"] = (3e8 * sample_rate * 1e3) / (2 * freq_slope * 1e12 * num_adc_r2)
         cfg["dopplerResolutionMps"] = (3e8) / (
             2 * start_freq * 1e9 * (idle_time + ramp_end) * 1e-6 * num_doppler * NUM_TX
         )
         cfg["maxRange"] = (300 * 0.9 * sample_rate) / (2 * freq_slope * 1e3)
-        cfg["maxVelocity"] = (3e8) / (
-            4 * start_freq * 1e9 * (idle_time + ramp_end) * 1e-6 * NUM_TX
-        )
+        cfg["maxVelocity"] = (3e8) / (4 * start_freq * 1e9 * (idle_time + ramp_end) * 1e-6 * NUM_TX)
         return cfg
 
     # ------------------------------------------------------------------
@@ -363,9 +349,7 @@ class AWR1642Node(Node):
             PointField(name="x", offset=0, datatype=PointField.FLOAT32, count=1),
             PointField(name="y", offset=4, datatype=PointField.FLOAT32, count=1),
             PointField(name="z", offset=8, datatype=PointField.FLOAT32, count=1),
-            PointField(
-                name="intensity", offset=12, datatype=PointField.FLOAT32, count=1
-            ),
+            PointField(name="intensity", offset=12, datatype=PointField.FLOAT32, count=1),
             PointField(name="doppler", offset=16, datatype=PointField.FLOAT32, count=1),
             PointField(name="range", offset=20, datatype=PointField.FLOAT32, count=1),
         ]
@@ -384,6 +368,13 @@ class AWR1642Node(Node):
         header.stamp = self.get_clock().now().to_msg()
         header.frame_id = self._frame_id
         self._pub.publish(pc2.create_cloud(header, fields, points.tolist()))
+
+        message = Float32()
+        if not det_obj or det_obj.get("numObj", 0) == 0:
+            message.data = -1.0
+        else:
+            message.data = float(np.min(det_obj["range"]))
+        self._pubDist.publish(message)
 
     # def closestObjectCallback(self, request, response):
     #     if not self._last_det_obj or self._last_det_obj.get("numObj", 0) == 0:

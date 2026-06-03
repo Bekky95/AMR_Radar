@@ -15,6 +15,8 @@ die Vorlage ist für die Terminalversion ist hier: clone https://github.com/ibai
 ## TODO
  - [ ] Library schreiben
  - [ ] ...
+ - [ ] ROS2 Winkel Bestimmunng
+ - [ ] Tiefpassfilter um artefakte zu glätten (vllt auch Bandpass)
  - [ ] Profit
 
 
