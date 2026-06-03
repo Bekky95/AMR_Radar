@@ -4,6 +4,10 @@
 import time
 import numpy as np
 import serial
+import sys
+import glob
+import serial
+import re
 
 import rclpy
 from rclpy.node import Node
@@ -13,6 +17,51 @@ from rclpy.action import ActionServer
 from sensor_msgs.msg import PointCloud2, PointField
 from std_msgs.msg import Header
 import sensor_msgs_py.point_cloud2 as pc2
+
+
+def autodetect(ports: list):
+    dataPattern = r"(COM7|ACM1)"
+    configPattern = r"(COM8|ACM0)"
+    result = {}
+    for port in ports:
+        if re.search(configPattern, port):
+            result["config"] = port
+        elif re.search(dataPattern, port):
+            result["data"] = port
+
+    if "config" not in result and "data" not in result:
+        raise ValueError("No Device is connected. Make sure to plug in the device")
+
+    return result
+
+
+def serial_ports():
+    """Lists serial port names
+
+    :raises EnvironmentError:
+        On unsupported or unknown platforms
+    :returns:
+        A list of the serial ports available on the system
+    """
+    if sys.platform.startswith("win"):
+        ports = ["COM%s" % (i + 1) for i in range(256)]
+    elif sys.platform.startswith("linux") or sys.platform.startswith("cygwin"):
+        # this excludes your current terminal "/dev/tty"
+        ports = glob.glob("/dev/tty[A-Za-z]*")
+    elif sys.platform.startswith("darwin"):
+        ports = glob.glob("/dev/tty.*")
+    else:
+        raise EnvironmentError("Unsupported platform")
+
+    result = []
+    for port in ports:
+        try:
+            s = serial.Serial(port)
+            s.close()
+            result.append(port)
+        except (OSError, serial.SerialException):
+            pass
+    return autodetect(result)
 
 
 class AWR1642Node(Node):
@@ -27,17 +76,28 @@ class AWR1642Node(Node):
         super().__init__("awr1642_radar")
 
         # Parameter
+        ports = serial_ports()
         self.declare_parameter("config_file", "1642config.cfg")
         self.declare_parameter("frame_id", "radar")
-        self.declare_parameter("cli_port", "/dev/ttyACM0")
-        self.declare_parameter("data_port", "/dev/ttyACM1")
+        self.declare_parameter("cli_port", ports["config"])
+        self.declare_parameter("data_port", ports["data"])
         self.declare_parameter("timer_period", 0.033)
 
-        self._frame_id = self.get_parameter("frame_id").get_parameter_value().string_value
-        self._config_file = self.get_parameter("config_file").get_parameter_value().string_value
-        self._cli_port = self.get_parameter("cli_port").get_parameter_value().string_value
-        self._data_port = self.get_parameter("data_port").get_parameter_value().string_value
-        timer_period = self.get_parameter("timer_period").get_parameter_value().double_value
+        self._frame_id = (
+            self.get_parameter("frame_id").get_parameter_value().string_value
+        )
+        self._config_file = (
+            self.get_parameter("config_file").get_parameter_value().string_value
+        )
+        self._cli_port = (
+            self.get_parameter("cli_port").get_parameter_value().string_value
+        )
+        self._data_port = (
+            self.get_parameter("data_port").get_parameter_value().string_value
+        )
+        timer_period = (
+            self.get_parameter("timer_period").get_parameter_value().double_value
+        )
 
         # State
         self._cli = None
@@ -50,19 +110,8 @@ class AWR1642Node(Node):
         # Publisher
         self._pub = self.create_publisher(PointCloud2, "/radar", 10)
 
-        # Services
-        # self._closestObject = self.create_service(
-        #     GetFLoat64, "~/closestDistance", self.closestObjectCallback
-        # )
-        #
-        # self._closestObject = self.create_service(
-        #     GetInt64, "~/objectCount", self.getObjectCountCallback
-        # )
-
-        # TODO: Action Server hier registrieren
-        # self._action_server = ActionServer(self, MyAction, "my_action", self._handle_action)
-
         # Init
+        self.get_logger().info("initialisiere Radar")
         self._init_radar()
         self.create_timer(timer_period, self._timer_cb)
 
@@ -130,7 +179,6 @@ class AWR1642Node(Node):
             time.sleep(0.01)
 
         last = response.splitlines()[-1] if response else "NO RESPONSE"
-        self.get_logger().info(f"{cmd:<50} -> {last}")
         if "Error" in response:
             self.get_logger().warn(f"Radar Fehler bei '{cmd}': {response}")
         return response
@@ -165,12 +213,16 @@ class AWR1642Node(Node):
         num_doppler = num_chirps / NUM_TX
 
         cfg["numRangeBins"] = num_adc_r2
-        cfg["rangeIdxToMeters"] = (3e8 * sample_rate * 1e3) / (2 * freq_slope * 1e12 * num_adc_r2)
+        cfg["rangeIdxToMeters"] = (3e8 * sample_rate * 1e3) / (
+            2 * freq_slope * 1e12 * num_adc_r2
+        )
         cfg["dopplerResolutionMps"] = (3e8) / (
             2 * start_freq * 1e9 * (idle_time + ramp_end) * 1e-6 * num_doppler * NUM_TX
         )
         cfg["maxRange"] = (300 * 0.9 * sample_rate) / (2 * freq_slope * 1e3)
-        cfg["maxVelocity"] = (3e8) / (4 * start_freq * 1e9 * (idle_time + ramp_end) * 1e-6 * NUM_TX)
+        cfg["maxVelocity"] = (3e8) / (
+            4 * start_freq * 1e9 * (idle_time + ramp_end) * 1e-6 * NUM_TX
+        )
         return cfg
 
     # ------------------------------------------------------------------
@@ -311,7 +363,9 @@ class AWR1642Node(Node):
             PointField(name="x", offset=0, datatype=PointField.FLOAT32, count=1),
             PointField(name="y", offset=4, datatype=PointField.FLOAT32, count=1),
             PointField(name="z", offset=8, datatype=PointField.FLOAT32, count=1),
-            PointField(name="intensity", offset=12, datatype=PointField.FLOAT32, count=1),
+            PointField(
+                name="intensity", offset=12, datatype=PointField.FLOAT32, count=1
+            ),
             PointField(name="doppler", offset=16, datatype=PointField.FLOAT32, count=1),
             PointField(name="range", offset=20, datatype=PointField.FLOAT32, count=1),
         ]
@@ -371,11 +425,6 @@ class AWR1642Node(Node):
         except Exception as e:
             self.get_logger().error(str(e))
         super().destroy_node()
-
-
-# ------------------------------------------------------------------
-# ENTRY POINT
-# ------------------------------------------------------------------
 
 
 def main(args=None):
