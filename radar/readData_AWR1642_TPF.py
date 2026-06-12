@@ -6,6 +6,10 @@ pg.setConfigOptions(useOpenGL=False, antialias=False)
 from radar.readData_AWR1642 import readAndParseData16xx
 
 
+# ------------------------------------------------------------------
+# PLOT UPDATE
+# ------------------------------------------------------------------
+
 def update_with_filter(
     cur_Dataport, cur_configParameters, cur_detObj, cur_s, cur_visualizationFilter
 ):

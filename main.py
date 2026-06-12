@@ -9,12 +9,7 @@ from radar.helper.fixingdata import PointCloudLowPassFilter
 from radar.readData_AWR1642_TPF import update_with_filter
 
 # original file without filter:
-from radar.readData_AWR1642 import (
-    serialConfig,
-    parseConfigFile,
-    send_cli_command,
-    resetParserBuffer,
-)
+from radar.readData_AWR1642 import RadarParser
 
 # LOGGING --------------------------------------------------------------------
 
@@ -36,15 +31,17 @@ Dataport = {}
 byteBuffer = np.zeros(2**15, dtype="uint8")
 byteBufferLength = 0
 
+radar_parser = RadarParser()
+
 # -----------------------------------------------------------------------------
 # MAIN PROGRAM
 # -----------------------------------------------------------------------------
 
 # Serielle Ports konfigurieren und Radar starten.
-CLIport, Dataport = serialConfig(configFileName)
+CLIport, Dataport = radar_parser.serialConfig(configFileName)
 
 # Radarparameter aus der cfg-Datei berechnen.
-configParameters = parseConfigFile(configFileName)
+configParameters = radar_parser.parseConfigFile(configFileName)
 
 # Qt-Anwendung für den Plot erzeugen.
 app = QtWidgets.QApplication([])
@@ -113,11 +110,11 @@ while True:
         logging.info("\nBeende Programm sauber...")
 
         try:
-            send_cli_command("sensorStop", delay=0.3, timeout=1.0)
+            radar_parser.send_cli_command("sensorStop", delay=0.3, timeout=1.0)
             time.sleep(0.3)
 
             Dataport.reset_input_buffer()
-            resetParserBuffer()
+            radar_parser.resetParserBuffer()
 
         except Exception as error:
             logging.error("Fehler beim Stoppen des Sensors:", error)
