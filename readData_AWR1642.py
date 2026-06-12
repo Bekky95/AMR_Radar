@@ -8,6 +8,8 @@ pg.setConfigOptions(useOpenGL=False, antialias=False)
 
 from pyqtgraph.Qt import QtWidgets
 
+import logging
+logging.basicConfig(level=logging.DEBUG)
 
 # Name der Radar-Konfigurationsdatei
 configFileName = "1642config.cfg"
@@ -89,11 +91,11 @@ def send_cli_command(command, delay=0.05, timeout=1.0):
     else:
         lastLine = "NO RESPONSE"
 
-    print(f"{command:<60} -> {lastLine}")
+    logging.info(f"{command:<60} -> {lastLine}")
 
     if "Error" in response:
-        print("Radarboard meldet Fehler bei Befehl:", command)
-        print(response)
+        logging.error("Radarboard meldet Fehler bei Befehl:", command)
+        logging.error(response)
 
     return response
 
@@ -460,19 +462,19 @@ def readAndParseData16xx(Dataport, configParameters):
                 idX += 2
 
                 if xyzQ < 0 or xyzQ > 15:
-                    print("Ungültiges xyzQFormat:", xyzQ)
+                    logging.error("Ungültiges xyzQFormat:", xyzQ)
                     return 0, frameNumber, {}
 
                 tlv_xyzQFormat = 2**xyzQ
 
                 if tlv_numObj < 0 or tlv_numObj > 200:
-                    print("Ungültige Objektanzahl:", tlv_numObj)
+                    logging.error("Ungültige Objektanzahl:", tlv_numObj)
                     return 0, frameNumber, {}
 
                 neededBytes = tlv_numObj * OBJ_STRUCT_SIZE_BYTES
 
                 if idX + neededBytes > totalPacketLen:
-                    print("Unvollständiges Paket:", tlv_numObj, "Objekte")
+                    logging.error("Unvollständiges Paket:", tlv_numObj, "Objekte")
                     return 0, frameNumber, {}
 
                 rangeIdx = np.zeros(tlv_numObj, dtype="uint16")
@@ -633,7 +635,7 @@ while True:
         # Einmal pro Sekunde Debug-Ausgabe.
         if time.time() - lastDebugTime > 1:
             numObj = detObj.get("numObj", 0) if isinstance(detObj, dict) else 0
-            print(
+            logging.debug(
                 f"bytes={Dataport.in_waiting}, "
                 f"dataOk={dataOk}, "
                 f"numObj={numObj}, "
@@ -645,7 +647,7 @@ while True:
         time.sleep(0.03)
 
     except KeyboardInterrupt:
-        print("\nBeende Programm sauber...")
+        logging.info("\nBeende Programm sauber...")
 
         try:
             send_cli_command("sensorStop", delay=0.3, timeout=1.0)
@@ -655,14 +657,14 @@ while True:
             resetParserBuffer()
 
         except Exception as error:
-            print("Fehler beim Stoppen des Sensors:", error)
+            logging.error("Fehler beim Stoppen des Sensors:", error)
 
         try:
             CLIport.close()
             Dataport.close()
             win.close()
         except Exception as error:
-            print("Fehler beim Schließen der Ports:", error)
+            logging.error("Fehler beim Schließen der Ports:", error)
 
-        print("Ports geschlossen.")
+        logging.info("Ports geschlossen.")
         break

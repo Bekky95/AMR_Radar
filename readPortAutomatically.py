@@ -3,6 +3,7 @@ import glob
 import serial
 import re
 
+import logging
 
 def autodetect(ports: list):
     dataPattern = r"(COM7|ACM1)"
@@ -11,10 +12,10 @@ def autodetect(ports: list):
     for port in ports:
         if re.search(configPattern, port):
             result["config"] = port
-            print("config", port)
+            logging.info(f"config {port}")
         elif re.search(dataPattern, port):
             result["data"] = port
-            print("data", port)
+            logging.info(f"data {port}")
 
     return result
 
