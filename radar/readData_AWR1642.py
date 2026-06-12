@@ -2,6 +2,8 @@ import serial
 import time
 import numpy as np
 import pyqtgraph as pg
+
+import main
 from readPortAutomatically import serial_ports
 
 pg.setConfigOptions(useOpenGL=False, antialias=False)
@@ -9,18 +11,19 @@ pg.setConfigOptions(useOpenGL=False, antialias=False)
 from pyqtgraph.Qt import QtWidgets
 
 import logging
-logging.basicConfig(level=logging.DEBUG)
+#logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 
-# Name der Radar-Konfigurationsdatei
-configFileName = "1642config.cfg"
-
-# Globale Schnittstellen für Steuerbefehle und Datenstrom
-CLIport = {}
-Dataport = {}
-
-# Globaler Byte-Puffer für eingehende UART-Daten
-byteBuffer = np.zeros(2**15, dtype="uint8")
-byteBufferLength = 0
+# # Name der Radar-Konfigurationsdatei
+# configFileName = "1642config.cfg"
+#
+# # Globale Schnittstellen für Steuerbefehle und Datenstrom
+# CLIport = {}
+# Dataport = {}
+#
+# # Globaler Byte-Puffer für eingehende UART-Daten
+# byteBuffer = np.zeros(2**15, dtype="uint8")
+# byteBufferLength = 0
 
 
 # ------------------------------------------------------------------
@@ -566,17 +569,17 @@ def update():
     """
     global detObj
 
-    dataOk, frameNumber, detObj = readAndParseData16xx(Dataport, configParameters)
+    dataOk, frameNumber, detObj = readAndParseData16xx(Dataport, main.configParameters)
 
     if dataOk:
         if detObj.get("numObj", 0) > 0:
             x = -detObj["x"]
             y = detObj["y"]
 
-            s.setData(x, y)
+            main.s.setData(x, y)
         else:
             # Nur leeren, wenn ein gültiger Frame kam, aber keine Objekte enthält.
-            s.setData([], [])
+            main.s.setData([], [])
 
     # Wichtig: Nicht bei dataOk == 0 leeren.
     QtWidgets.QApplication.processEvents()
@@ -587,84 +590,84 @@ def update():
 # ------------------------------------------------------------------
 # MAIN PROGRAM
 # ------------------------------------------------------------------
-
-# Serielle Ports konfigurieren und Radar starten.
-CLIport, Dataport = serialConfig(configFileName)
-
-# Radarparameter aus der cfg-Datei berechnen.
-configParameters = parseConfigFile(configFileName)
-
-# Qt-Anwendung für den Plot erzeugen.
-app = QtWidgets.QApplication([])
-
-# Plot konfigurieren.
-pg.setConfigOption("background", "w")
-
-win = pg.GraphicsLayoutWidget(title="2D scatter plot")
-p = win.addPlot()
-
-p.setXRange(-0.5, 0.5)
-p.setYRange(0, 1.5)
-
-p.setLabel("left", text="Y position (m)")
-p.setLabel("bottom", text="X position (m)")
-
-s = p.plot([], [], pen=None, symbol="o")
-
-win.show()
-
-
-# Speicher für die letzten Frames.
-detObj = {}
-frameData = {}
-currentIndex = 0
-MAX_FRAMES = 300
-
-lastDebugTime = time.time()
-lastFrameNumber = 0
-
-while True:
-    try:
-        dataOk = update()
-
-        if dataOk:
-            frameData[currentIndex % MAX_FRAMES] = detObj
-            currentIndex += 1
-            lastFrameNumber = currentIndex
-
-        # Einmal pro Sekunde Debug-Ausgabe.
-        if time.time() - lastDebugTime > 1:
-            numObj = detObj.get("numObj", 0) if isinstance(detObj, dict) else 0
-            logging.debug(
-                f"bytes={Dataport.in_waiting}, "
-                f"dataOk={dataOk}, "
-                f"numObj={numObj}, "
-                f"frames={currentIndex}"
-            )
-            lastDebugTime = time.time()
-
-        QtWidgets.QApplication.processEvents()
-        time.sleep(0.03)
-
-    except KeyboardInterrupt:
-        logging.info("\nBeende Programm sauber...")
-
-        try:
-            send_cli_command("sensorStop", delay=0.3, timeout=1.0)
-            time.sleep(0.3)
-
-            Dataport.reset_input_buffer()
-            resetParserBuffer()
-
-        except Exception as error:
-            logging.error("Fehler beim Stoppen des Sensors:", error)
-
-        try:
-            CLIport.close()
-            Dataport.close()
-            win.close()
-        except Exception as error:
-            logging.error("Fehler beim Schließen der Ports:", error)
-
-        logging.info("Ports geschlossen.")
-        break
+#
+# # Serielle Ports konfigurieren und Radar starten.
+# CLIport, Dataport = serialConfig(configFileName)
+#
+# # Radarparameter aus der cfg-Datei berechnen.
+# configParameters = parseConfigFile(configFileName)
+#
+# # Qt-Anwendung für den Plot erzeugen.
+# app = QtWidgets.QApplication([])
+#
+# # Plot konfigurieren.
+# pg.setConfigOption("background", "w")
+#
+# win = pg.GraphicsLayoutWidget(title="2D scatter plot")
+# p = win.addPlot()
+#
+# p.setXRange(-0.5, 0.5)
+# p.setYRange(0, 1.5)
+#
+# p.setLabel("left", text="Y position (m)")
+# p.setLabel("bottom", text="X position (m)")
+#
+# s = p.plot([], [], pen=None, symbol="o")
+#
+# win.show()
+#
+#
+# # Speicher für die letzten Frames.
+# detObj = {}
+# frameData = {}
+# currentIndex = 0
+# MAX_FRAMES = 300
+#
+# lastDebugTime = time.time()
+# lastFrameNumber = 0
+#
+# while True:
+#     try:
+#         dataOk = update()
+#
+#         if dataOk:
+#             frameData[currentIndex % MAX_FRAMES] = detObj
+#             currentIndex += 1
+#             lastFrameNumber = currentIndex
+#
+#         # Einmal pro Sekunde Debug-Ausgabe.
+#         if time.time() - lastDebugTime > 1:
+#             numObj = detObj.get("numObj", 0) if isinstance(detObj, dict) else 0
+#             logging.debug(
+#                 f"bytes={Dataport.in_waiting}, "
+#                 f"dataOk={dataOk}, "
+#                 f"numObj={numObj}, "
+#                 f"frames={currentIndex}"
+#             )
+#             lastDebugTime = time.time()
+#
+#         QtWidgets.QApplication.processEvents()
+#         time.sleep(0.03)
+#
+#     except KeyboardInterrupt:
+#         logging.info("\nBeende Programm sauber...")
+#
+#         try:
+#             send_cli_command("sensorStop", delay=0.3, timeout=1.0)
+#             time.sleep(0.3)
+#
+#             Dataport.reset_input_buffer()
+#             resetParserBuffer()
+#
+#         except Exception as error:
+#             logging.error("Fehler beim Stoppen des Sensors:", error)
+#
+#         try:
+#             CLIport.close()
+#             Dataport.close()
+#             win.close()
+#         except Exception as error:
+#             logging.error("Fehler beim Schließen der Ports:", error)
+#
+#         logging.info("Ports geschlossen.")
+#         break
