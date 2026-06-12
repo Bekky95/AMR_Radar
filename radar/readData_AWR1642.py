@@ -259,13 +259,16 @@ def parseConfigFile(configFileName):
         * numTxAnt
     )
 
-    configParameters["maxRange"] = (300 * 0.9 * digOutSampleRate) / (2 * freqSlopeConst * 1e3)
+    configParameters["maxRange"] = (300 * 0.9 * digOutSampleRate) / (
+        2 * freqSlopeConst * 1e3
+    )
 
     configParameters["maxVelocity"] = (3e8) / (
         4 * startFreq * 1e9 * (idleTime + rampEndTime) * 1e-6 * numTxAnt
     )
 
     return configParameters
+
 
 # ------------------------------------------------------------------
 # UART PARSING
@@ -325,7 +328,9 @@ def readAndParseData16xx(Dataport, configParameters):
     byteCount = len(byteVec)
 
     if (byteBufferLength + byteCount) < maxBufferSize:
-        byteBuffer[byteBufferLength : byteBufferLength + byteCount] = byteVec[:byteCount]
+        byteBuffer[byteBufferLength : byteBufferLength + byteCount] = byteVec[
+            :byteCount
+        ]
         byteBufferLength += byteCount
 
     if byteBufferLength > 16:
@@ -483,7 +488,9 @@ def readAndParseData16xx(Dataport, configParameters):
             if remainingBytes > 0:
                 byteBuffer[:remainingBytes] = byteBuffer[shiftSize:byteBufferLength]
 
-            byteBuffer[remainingBytes:] = np.zeros(len(byteBuffer[remainingBytes:]), dtype="uint8")
+            byteBuffer[remainingBytes:] = np.zeros(
+                len(byteBuffer[remainingBytes:]), dtype="uint8"
+            )
 
             byteBufferLength = remainingBytes
 
@@ -501,7 +508,7 @@ def readAndParseData16xx(Dataport, configParameters):
 # ------------------------------------------------------------------
 
 
-def update(cur_Dataport, cur_configParameters, cur_detObj, cur_s):
+def update_without_filter(cur_Dataport, cur_configParameters, cur_detObj, cur_s):
     """
     Liest neue Radardaten ein und aktualisiert den Scatter-Plot.
 
@@ -513,7 +520,9 @@ def update(cur_Dataport, cur_configParameters, cur_detObj, cur_s):
     Returns:
         int: 1, wenn ein gültiges Datenpaket verarbeitet wurde, sonst 0.
     """
-    dataOk, frameNumber, cur_detObj = readAndParseData16xx(cur_Dataport, cur_configParameters)
+    dataOk, frameNumber, cur_detObj = readAndParseData16xx(
+        cur_Dataport, cur_configParameters
+    )
 
     if dataOk:
         if cur_detObj.get("numObj", 0) > 0:

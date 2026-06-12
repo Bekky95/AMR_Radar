@@ -4,17 +4,23 @@ import pyqtgraph as pg
 import time
 
 from radar.helper.fixingdata import PointCloudLowPassFilter
+
 # file with filter:
-from radar.readData_AWR1642_TPF import update, send_cli_command, \
-    resetParserBuffer
+from radar.readData_AWR1642_TPF import update_with_filter
 
 # original file without filter:
-from radar.readData_AWR1642 import serialConfig, parseConfigFile
+from radar.readData_AWR1642 import (
+    serialConfig,
+    parseConfigFile,
+    send_cli_command,
+    resetParserBuffer,
+)
 
 # LOGGING --------------------------------------------------------------------
 
 import logging
-#logging.basicConfig(level=logging.DEBUG)
+
+# logging.basicConfig(level=logging.DEBUG)
 logging.basicConfig(level=logging.INFO)
 
 # GLOBAL VAR ------------------------------------------------------------------
@@ -80,7 +86,9 @@ lastFrameNumber = 0
 
 while True:
     try:
-        dataOk, detObj = update(Dataport, configParameters, detObj, s, visualizationFilter)
+        dataOk, detObj = update_with_filter(
+            Dataport, configParameters, detObj, s, visualizationFilter
+        )
 
         if dataOk:
             frameData[currentIndex % MAX_FRAMES] = detObj

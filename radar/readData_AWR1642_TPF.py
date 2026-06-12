@@ -1,18 +1,14 @@
-import serial
-import time
-import numpy as np
 import pyqtgraph as pg
-
-from radar.helper.byte_converter import bytes_to_uint16, bytes_to_int16
-from radar.readData_AWR1642 import resetParserBuffer, read_cli_response, send_cli_command, readAndParseData16xx
-from readPortAutomatically import serial_ports
+from pyqtgraph.Qt import QtWidgets
 
 pg.setConfigOptions(useOpenGL=False, antialias=False)
 
-from pyqtgraph.Qt import QtWidgets
+from radar.readData_AWR1642 import readAndParseData16xx
 
 
-def update(cur_Dataport, cur_configParameters, cur_detObj, cur_s, cur_visualizationFilter):
+def update_with_filter(
+    cur_Dataport, cur_configParameters, cur_detObj, cur_s, cur_visualizationFilter
+):
     """
     Liest neue Radardaten ein und aktualisiert den Scatter-Plot.
 
@@ -25,7 +21,9 @@ def update(cur_Dataport, cur_configParameters, cur_detObj, cur_s, cur_visualizat
         int: 1, wenn ein gültiges Datenpaket verarbeitet wurde, sonst 0.
     """
 
-    dataOk, frameNumber, cur_detObj = readAndParseData16xx(cur_Dataport, cur_configParameters)
+    dataOk, frameNumber, cur_detObj = readAndParseData16xx(
+        cur_Dataport, cur_configParameters
+    )
 
     if dataOk:
         if cur_detObj.get("numObj", 0) > 0:
