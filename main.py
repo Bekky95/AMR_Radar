@@ -24,10 +24,12 @@ logging.basicConfig(level=logging.INFO)
 configFileName = "1642config.cfg"
 
 # Globale Schnittstellen für Steuerbefehle und Datenstrom
+#TODO: in die __init__?
 CLIport = {}
 Dataport = {}
 
 # Globaler Byte-Puffer für eingehende UART-Daten
+#TODO: weg, da ist in __init__?
 byteBuffer = np.zeros(2**15, dtype="uint8")
 byteBufferLength = 0
 
@@ -38,9 +40,12 @@ radar_parser = RadarParser()
 # -----------------------------------------------------------------------------
 
 # Serielle Ports konfigurieren und Radar starten.
+#TODO: braucht es eigentlich nicht wenn alles in der Klasse passiert?
+#TODO: in die __init__?
 CLIport, Dataport = radar_parser.serialConfig(configFileName)
 
 # Radarparameter aus der cfg-Datei berechnen.
+#TODO: in die __init__?
 configParameters = radar_parser.parseConfigFile(configFileName)
 
 # Qt-Anwendung für den Plot erzeugen.
@@ -62,6 +67,7 @@ s = p.plot([], [], pen=None, symbol="o")
 
 # Zustandsbehafteter Tiefpass ausschließlich für die Darstellung.
 # Kleinere alpha-Werte glätten stärker, reagieren aber langsamer.
+#TODO: in die __init__ bzw eigene Methode?
 visualizationFilter = PointCloudLowPassFilter(
     alpha=0.35,
     max_match_distance=0.20,
@@ -73,6 +79,8 @@ win.show()
 
 
 # Speicher für die letzten Frames.
+#TODO: in die __init__?
+#TODO: vll eher nicht --> zurückgeben --> weiterverwenden
 detObj = {}
 frameData = {}
 currentIndex = 0
@@ -106,6 +114,7 @@ while True:
         QtWidgets.QApplication.processEvents()
         time.sleep(0.03)
 
+    #TODO: nichts!!!!, das ist super:
     except KeyboardInterrupt:
         logging.info("\nBeende Programm sauber...")
 

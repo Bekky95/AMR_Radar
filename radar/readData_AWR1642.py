@@ -67,7 +67,7 @@ class RadarParser:
 
         return response.strip()
 
-    def send_cli_command(self, command, delay=0.05, timeout=1.0):
+    def send_cli_command(self, command, delay=0.05, timeout=1.0) -> str:
         """
         Sendet einen CLI-Befehl an das Radarboard und liest anschließend die Antwort.
 
@@ -121,14 +121,17 @@ class RadarParser:
         Returns:
             tuple[serial.Serial, serial.Serial]: Geöffneter CLI-Port und Datenport.
         """
+        #TODO: aus denen Klassenvar machen und übergeben:
         global CLIport
         global Dataport
 
+        #TODO: aus dem Spaß eine eigene Funktion machen:
         serialPort = serial_ports()
 
         CLIport = serial.Serial(serialPort["config"], 115200, timeout=0.2)
         Dataport = serial.Serial(serialPort["data"], 921600, timeout=0.05)
 
+        #TODO: Buffer reset allgemeine Funktion damit das nicht so aussieht
         CLIport.reset_input_buffer()
         CLIport.reset_output_buffer()
         Dataport.reset_input_buffer()
@@ -155,6 +158,7 @@ class RadarParser:
             if cmd == "" or cmd.startswith("%"):
                 continue
 
+            #TODO: jeweils Inhalt der ifs in eigene Methoden:
             if cmd == "sensorStart":
                 # Vor sensorStart nochmal sicherstellen, dass keine alten Bytes im
                 # Datenport oder Parser liegen.
@@ -162,24 +166,30 @@ class RadarParser:
                 self.resetParserBuffer()
 
                 response = self.send_cli_command(cmd, delay=0.1, timeout=0.5)
+                #TODO: responses verarbeiten -> Abfragen/Ausgeben oä
 
                 # Erste unvollständige Frames nach Start verwerfen.
                 time.sleep(0.3)
                 Dataport.reset_input_buffer()
                 self.resetParserBuffer()
 
+            # TODO: jeweils Inhalt der ifs in eigene Methoden:
             elif cmd == "sensorStop":
                 response = self.send_cli_command(cmd, delay=0.05, timeout=0.3)
+                # TODO: responses verarbeiten -> Abfragen/Ausgeben oä
                 Dataport.reset_input_buffer()
                 self.resetParserBuffer()
 
+            # TODO: jeweils Inhalt der ifs in eigene Methoden:
             elif cmd == "flushCfg":
                 response = self.send_cli_command(cmd, delay=0.05, timeout=0.3)
+                # TODO: responses verarbeiten -> Abfragen/Ausgeben oä
                 Dataport.reset_input_buffer()
                 self.resetParserBuffer()
 
             else:
                 response = self.send_cli_command(cmd, delay=0.05, timeout=0.3)
+                # TODO: responses verarbeiten -> Abfragen/Ausgeben oä
 
         return CLIport, Dataport
 
@@ -315,13 +325,14 @@ class RadarParser:
                 detObj:
                     Dictionary mit erkannten Objekten.
         """
-        global byteBuffer
-        global byteBufferLength
+        global byteBuffer  #TODO: Mit Klassenvar ersetzen
+        global byteBufferLength  #TODO: Mit Klassenvar ersetzen
 
         OBJ_STRUCT_SIZE_BYTES = 12
         MMWDEMO_UART_MSG_DETECTED_POINTS = 1
         maxBufferSize = 2 ** 15
-        #magicWord = [2, 1, 4, 3, 6, 5, 8, 7]
+        magicWord = [2, 1, 4, 3, 6, 5, 8, 7]
+        #TODO: MAGIC_WORD einbauen und separate Funktion
 
         magicOK = 0
         dataOK = 0
@@ -329,6 +340,8 @@ class RadarParser:
         detObj = {}
         tlv_type = 0
 
+        #TODO: Buffer lesen in eigene Funktion und alles auf
+        #TODO: Klassenvariablen übergeben
         readBuffer = Dataport.read(Dataport.in_waiting)
         byteVec = np.frombuffer(readBuffer, dtype="uint8")
         byteCount = len(byteVec)
