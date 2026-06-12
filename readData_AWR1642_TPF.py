@@ -625,7 +625,7 @@ s = p.plot([], [], pen=None, symbol="o")
 visualizationFilter = PointCloudLowPassFilter(
     alpha=0.35,
     max_match_distance=0.20,
-    min_confirmations=2,
+    min_confirmations=3,
     max_missing_frames=1,
 )
 
