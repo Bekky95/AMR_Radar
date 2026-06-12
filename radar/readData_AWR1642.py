@@ -3,7 +3,7 @@ import time
 import numpy as np
 import pyqtgraph as pg
 
-import main
+from radar.helper.byte_converter import bytes_to_uint16, bytes_to_int16
 from readPortAutomatically import serial_ports
 
 pg.setConfigOptions(useOpenGL=False, antialias=False)
@@ -11,19 +11,6 @@ pg.setConfigOptions(useOpenGL=False, antialias=False)
 from pyqtgraph.Qt import QtWidgets
 
 import logging
-#logging.basicConfig(level=logging.DEBUG)
-logging.basicConfig(level=logging.INFO)
-
-# # Name der Radar-Konfigurationsdatei
-# configFileName = "1642config.cfg"
-#
-# # Globale Schnittstellen für Steuerbefehle und Datenstrom
-# CLIport = {}
-# Dataport = {}
-#
-# # Globaler Byte-Puffer für eingehende UART-Daten
-# byteBuffer = np.zeros(2**15, dtype="uint8")
-# byteBufferLength = 0
 
 
 # ------------------------------------------------------------------
@@ -63,6 +50,8 @@ def read_cli_response(timeout=1.0):
         if CLIport.in_waiting > 0:
             response += CLIport.read(CLIport.in_waiting).decode(errors="ignore")
 
+        time.sleep(0.01)
+
     return response.strip()
 
 
@@ -86,6 +75,8 @@ def send_cli_command(command, delay=0.05, timeout=1.0):
 
     CLIport.write((command + "\r\n").encode())
     CLIport.flush()
+
+    time.sleep(delay)
 
     response = read_cli_response(timeout=timeout)
 
@@ -276,51 +267,6 @@ def parseConfigFile(configFileName):
 
     return configParameters
 
-
-# ------------------------------------------------------------------
-# BYTE CONVERSION
-# ------------------------------------------------------------------
-
-
-def bytes_to_uint16(byteBuffer, idx):
-    """
-    Wandelt zwei Bytes aus dem UART-Puffer in einen vorzeichenlosen 16-Bit-Wert um.
-
-    Die Daten des Radars liegen im Little-Endian-Format vor. Das niederwertige
-    Byte steht also zuerst.
-
-    Args:
-        byteBuffer (np.ndarray): Empfangspuffer mit uint8-Werten.
-        idx (int): Startindex des ersten Bytes.
-
-    Returns:
-        int: Vorzeichenloser 16-Bit-Wert.
-    """
-    return int(byteBuffer[idx]) + (int(byteBuffer[idx + 1]) << 8)
-
-
-def bytes_to_int16(byteBuffer, idx):
-    """
-    Wandelt zwei Bytes aus dem UART-Puffer in einen vorzeichenbehafteten
-    16-Bit-Wert um.
-
-    Werte größer als 32767 werden als negative int16-Werte interpretiert.
-
-    Args:
-        byteBuffer (np.ndarray): Empfangspuffer mit uint8-Werten.
-        idx (int): Startindex des ersten Bytes.
-
-    Returns:
-        int: Vorzeichenbehafteter 16-Bit-Wert.
-    """
-    value = bytes_to_uint16(byteBuffer, idx)
-
-    if value > 32767:
-        value -= 65536
-
-    return value
-
-
 # ------------------------------------------------------------------
 # UART PARSING
 # ------------------------------------------------------------------
@@ -455,7 +401,7 @@ def readAndParseData16xx(Dataport, configParameters):
                 idX += 4
 
             except Exception:
-                pass
+                pass  # TODO: exception
 
             if tlv_type == MMWDEMO_UART_MSG_DETECTED_POINTS:
                 tlv_numObj = bytes_to_uint16(byteBuffer, idX)
@@ -471,7 +417,7 @@ def readAndParseData16xx(Dataport, configParameters):
                 tlv_xyzQFormat = 2**xyzQ
 
                 if tlv_numObj < 0 or tlv_numObj > 200:
-                    logging.error("Ungültige Objektanzahl:", tlv_numObj)
+                    logging.error("Ungültige Objektanzahl: ", tlv_numObj)
                     return 0, frameNumber, {}
 
                 neededBytes = tlv_numObj * OBJ_STRUCT_SIZE_BYTES
@@ -555,7 +501,7 @@ def readAndParseData16xx(Dataport, configParameters):
 # ------------------------------------------------------------------
 
 
-def update():
+def update(cur_Dataport, cur_configParameters, cur_detObj, cur_s):
     """
     Liest neue Radardaten ein und aktualisiert den Scatter-Plot.
 
@@ -567,107 +513,19 @@ def update():
     Returns:
         int: 1, wenn ein gültiges Datenpaket verarbeitet wurde, sonst 0.
     """
-    global detObj
-
-    dataOk, frameNumber, detObj = readAndParseData16xx(Dataport, main.configParameters)
+    dataOk, frameNumber, cur_detObj = readAndParseData16xx(cur_Dataport, cur_configParameters)
 
     if dataOk:
-        if detObj.get("numObj", 0) > 0:
-            x = -detObj["x"]
-            y = detObj["y"]
+        if cur_detObj.get("numObj", 0) > 0:
+            x = -cur_detObj["x"]
+            y = cur_detObj["y"]
 
-            main.s.setData(x, y)
+            cur_s.setData(x, y)
         else:
             # Nur leeren, wenn ein gültiger Frame kam, aber keine Objekte enthält.
-            main.s.setData([], [])
+            cur_s.setData([], [])
 
     # Wichtig: Nicht bei dataOk == 0 leeren.
     QtWidgets.QApplication.processEvents()
 
-    return dataOk
-
-
-# ------------------------------------------------------------------
-# MAIN PROGRAM
-# ------------------------------------------------------------------
-#
-# # Serielle Ports konfigurieren und Radar starten.
-# CLIport, Dataport = serialConfig(configFileName)
-#
-# # Radarparameter aus der cfg-Datei berechnen.
-# configParameters = parseConfigFile(configFileName)
-#
-# # Qt-Anwendung für den Plot erzeugen.
-# app = QtWidgets.QApplication([])
-#
-# # Plot konfigurieren.
-# pg.setConfigOption("background", "w")
-#
-# win = pg.GraphicsLayoutWidget(title="2D scatter plot")
-# p = win.addPlot()
-#
-# p.setXRange(-0.5, 0.5)
-# p.setYRange(0, 1.5)
-#
-# p.setLabel("left", text="Y position (m)")
-# p.setLabel("bottom", text="X position (m)")
-#
-# s = p.plot([], [], pen=None, symbol="o")
-#
-# win.show()
-#
-#
-# # Speicher für die letzten Frames.
-# detObj = {}
-# frameData = {}
-# currentIndex = 0
-# MAX_FRAMES = 300
-#
-# lastDebugTime = time.time()
-# lastFrameNumber = 0
-#
-# while True:
-#     try:
-#         dataOk = update()
-#
-#         if dataOk:
-#             frameData[currentIndex % MAX_FRAMES] = detObj
-#             currentIndex += 1
-#             lastFrameNumber = currentIndex
-#
-#         # Einmal pro Sekunde Debug-Ausgabe.
-#         if time.time() - lastDebugTime > 1:
-#             numObj = detObj.get("numObj", 0) if isinstance(detObj, dict) else 0
-#             logging.debug(
-#                 f"bytes={Dataport.in_waiting}, "
-#                 f"dataOk={dataOk}, "
-#                 f"numObj={numObj}, "
-#                 f"frames={currentIndex}"
-#             )
-#             lastDebugTime = time.time()
-#
-#         QtWidgets.QApplication.processEvents()
-#         time.sleep(0.03)
-#
-#     except KeyboardInterrupt:
-#         logging.info("\nBeende Programm sauber...")
-#
-#         try:
-#             send_cli_command("sensorStop", delay=0.3, timeout=1.0)
-#             time.sleep(0.3)
-#
-#             Dataport.reset_input_buffer()
-#             resetParserBuffer()
-#
-#         except Exception as error:
-#             logging.error("Fehler beim Stoppen des Sensors:", error)
-#
-#         try:
-#             CLIport.close()
-#             Dataport.close()
-#             win.close()
-#         except Exception as error:
-#             logging.error("Fehler beim Schließen der Ports:", error)
-#
-#         logging.info("Ports geschlossen.")
-#         break
+    return dataOk, cur_detObj

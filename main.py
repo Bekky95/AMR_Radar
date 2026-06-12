@@ -3,18 +3,21 @@ from PyQt5 import QtWidgets
 import pyqtgraph as pg
 import time
 
-from radar.fixingdata import PointCloudLowPassFilter
+from radar.helper.fixingdata import PointCloudLowPassFilter
 # file with filter:
-from radar.readData_AWR1642_TPF import serialConfig, parseConfigFile, update, send_cli_command, \
+from radar.readData_AWR1642_TPF import update, send_cli_command, \
     resetParserBuffer
 
 # original file without filter:
-# from radar.readData_AWR1642 import serialConfig, parseConfigFile, configFileName, update, send_cli_command, \
-#     resetParserBuffer
+from radar.readData_AWR1642 import serialConfig, parseConfigFile
 
-# ------------------------------------------------------------------
-# GLOBAL VAR
-# ------------------------------------------------------------------
+# LOGGING --------------------------------------------------------------------
+
+import logging
+#logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
+
+# GLOBAL VAR ------------------------------------------------------------------
 
 # Name der Radar-Konfigurationsdatei
 configFileName = "1642config.cfg"
@@ -27,9 +30,9 @@ Dataport = {}
 byteBuffer = np.zeros(2**15, dtype="uint8")
 byteBufferLength = 0
 
-# ------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 # MAIN PROGRAM
-# ------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 
 # Serielle Ports konfigurieren und Radar starten.
 CLIport, Dataport = serialConfig(configFileName)
@@ -77,7 +80,7 @@ lastFrameNumber = 0
 
 while True:
     try:
-        dataOk = update()
+        dataOk, detObj = update(Dataport, configParameters, detObj, s, visualizationFilter)
 
         if dataOk:
             frameData[currentIndex % MAX_FRAMES] = detObj
@@ -87,7 +90,7 @@ while True:
         # Einmal pro Sekunde Debug-Ausgabe.
         if time.time() - lastDebugTime > 1:
             numObj = detObj.get("numObj", 0) if isinstance(detObj, dict) else 0
-            print(
+            logging.debug(
                 f"bytes={Dataport.in_waiting}, "
                 f"dataOk={dataOk}, "
                 f"numObj={numObj}, "
@@ -99,7 +102,7 @@ while True:
         time.sleep(0.03)
 
     except KeyboardInterrupt:
-        print("\nBeende Programm sauber...")
+        logging.info("\nBeende Programm sauber...")
 
         try:
             send_cli_command("sensorStop", delay=0.3, timeout=1.0)
@@ -109,16 +112,16 @@ while True:
             resetParserBuffer()
 
         except Exception as error:
-            print("Fehler beim Stoppen des Sensors:", error)
+            logging.error("Fehler beim Stoppen des Sensors:", error)
 
         try:
             CLIport.close()
             Dataport.close()
             win.close()
         except Exception as error:
-            print("Fehler beim Schließen der Ports:", error)
+            logging.error("Fehler beim Schließen der Ports:", error)
 
-        print("Ports geschlossen.")
+        logging.info("Ports geschlossen.")
         break
 
 
