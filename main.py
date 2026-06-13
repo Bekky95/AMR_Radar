@@ -5,9 +5,6 @@ import time
 
 from radar.helper.fixingdata import PointCloudLowPassFilter
 
-# file with filter:
-from radar.readData_AWR1642_TPF import update_with_filter
-
 # original file without filter:
 from radar.readData_AWR1642 import RadarParser
 
@@ -25,15 +22,15 @@ configFileName = "1642config.cfg"
 
 # Globale Schnittstellen für Steuerbefehle und Datenstrom
 #TODO: in die __init__?
-CLIport = {}
-Dataport = {}
+#CLIport = {}
+#Dataport = {}
 
 # Globaler Byte-Puffer für eingehende UART-Daten
 #TODO: weg, da ist in __init__?
 byteBuffer = np.zeros(2**15, dtype="uint8")
 byteBufferLength = 0
 
-radar_parser = RadarParser()
+radar_parser = RadarParser(configFileName)
 
 # -----------------------------------------------------------------------------
 # MAIN PROGRAM
@@ -42,11 +39,11 @@ radar_parser = RadarParser()
 # Serielle Ports konfigurieren und Radar starten.
 #TODO: braucht es eigentlich nicht wenn alles in der Klasse passiert?
 #TODO: in die __init__?
-CLIport, Dataport = radar_parser.serialConfig(configFileName)
+#CLIport, Dataport = radar_parser.serialConfig(configFileName)
 
 # Radarparameter aus der cfg-Datei berechnen.
 #TODO: in die __init__?
-configParameters = radar_parser.parseConfigFile(configFileName)
+#configParameters = radar_parser.parseConfigFile(configFileName)
 
 # Qt-Anwendung für den Plot erzeugen.
 app = QtWidgets.QApplication([])
@@ -91,8 +88,8 @@ lastFrameNumber = 0
 
 while True:
     try:
-        dataOk, detObj = update_with_filter(
-            Dataport, configParameters, detObj, s, visualizationFilter
+        dataOk, detObj = radar_parser.update_with_filter(
+            detObj, s, visualizationFilter
         )
 
         if dataOk:
@@ -104,7 +101,7 @@ while True:
         if time.time() - lastDebugTime > 1:
             numObj = detObj.get("numObj", 0) if isinstance(detObj, dict) else 0
             logging.debug(
-                f"bytes={Dataport.in_waiting}, "
+                f"bytes={radar_parser.Dataport.in_waiting}, "
                 f"dataOk={dataOk}, "
                 f"numObj={numObj}, "
                 f"frames={currentIndex}"
@@ -114,7 +111,6 @@ while True:
         QtWidgets.QApplication.processEvents()
         time.sleep(0.03)
 
-    #TODO: nichts!!!!, das ist super:
     except KeyboardInterrupt:
         logging.info("\nBeende Programm sauber...")
 
@@ -122,18 +118,20 @@ while True:
             radar_parser.send_cli_command("sensorStop", delay=0.3, timeout=1.0)
             time.sleep(0.3)
 
-            Dataport.reset_input_buffer()
+            radar_parser.Dataport.reset_input_buffer()
             radar_parser.resetParserBuffer()
 
         except Exception as error:
             logging.error("Fehler beim Stoppen des Sensors:", error)
+            raise error
 
         try:
-            CLIport.close()
-            Dataport.close()
+            radar_parser.close_serialports()
             win.close()
+
         except Exception as error:
             logging.error("Fehler beim Schließen der Ports:", error)
+            raise error
 
         logging.info("Ports geschlossen.")
         break
