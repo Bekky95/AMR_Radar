@@ -20,7 +20,6 @@ logging.basicConfig(level=logging.INFO)
 # Name der Radar-Konfigurationsdatei
 configFileName = "1642config.cfg"
 
-# Globale Schnittstellen für Steuerbefehle und Datenstrom
 #TODO: in die __init__?
 #CLIport = {}
 #Dataport = {}
@@ -35,15 +34,6 @@ radar_parser = RadarParser(configFileName)
 # -----------------------------------------------------------------------------
 # MAIN PROGRAM
 # -----------------------------------------------------------------------------
-
-# Serielle Ports konfigurieren und Radar starten.
-#TODO: braucht es eigentlich nicht wenn alles in der Klasse passiert?
-#TODO: in die __init__?
-#CLIport, Dataport = radar_parser.serialConfig(configFileName)
-
-# Radarparameter aus der cfg-Datei berechnen.
-#TODO: in die __init__?
-#configParameters = radar_parser.parseConfigFile(configFileName)
 
 # Qt-Anwendung für den Plot erzeugen.
 app = QtWidgets.QApplication([])
@@ -118,8 +108,9 @@ while True:
             radar_parser.send_cli_command("sensorStop", delay=0.3, timeout=1.0)
             time.sleep(0.3)
 
-            radar_parser.Dataport.reset_input_buffer()
-            radar_parser.resetParserBuffer()
+            # radar_parser.Dataport.reset_input_buffer()
+            # radar_parser.resetParserBuffer()
+            radar_parser.reset_buffers()
 
         except Exception as error:
             logging.error("Fehler beim Stoppen des Sensors:", error)

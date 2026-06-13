@@ -5,7 +5,7 @@ import pyqtgraph as pg
 import struct
 
 from radar.helper.byte_converter import bytes_to_uint16, bytes_to_int16
-from radar.helper.serial_helper import serial_port_closer
+from radar.helper.serial_helper import serial_port_closer, reset_serialport_buffer
 from readPortAutomatically import serial_ports
 
 pg.setConfigOptions(useOpenGL=False, antialias=False)
@@ -26,15 +26,22 @@ MAGIC_WORD = b"\x02\x01\x04\x03\x06\x05\x08\x07"
 class RadarParser:
 
     def __init__(self, configFileName, buffer_size=2**15):
-        self.buffer = np.zeros(buffer_size, dtype=np.uint8)
-        self.length = 0
+        # Byte-Puffer für eingehende UART-Daten:
+        self._buffer = np.zeros(buffer_size, dtype=np.uint8)
+        self._length = 0
 
+        # Schnittstellen für Steuerbefehle und Datenstrom:
+        #TODO: private var
         self.CLIport: serial.Serial()
         self.Dataport: serial.Serial()
+
+        # Serielle Ports konfigurieren und Radar starten:
         self.CLIport, self.Dataport = self.serialConfig(configFileName)
 
+        # Radarparameter aus der cfg-Datei berechnen:
         self.configParameters = self.parseConfigFile(configFileName)
 
+    #TODO: Destructor implementieren?
     # def __del__(self):
     #     if self.Dataport.is_open and self.CLIport.is_open:
     #         self.Dataport.close()
@@ -47,7 +54,7 @@ class RadarParser:
     # ------------------------------------------------------------------
     # SERIAL CONFIGURATION
     # ------------------------------------------------------------------
-    def resetParserBuffer(self):
+    def _resetParserBuffer(self):
         """
         Leert den globalen UART-Parser-Puffer.
 
@@ -55,10 +62,15 @@ class RadarParser:
         neu konfiguriert wird. Dadurch bleiben keine alten oder unvollständigen
         Radar-Pakete im Parser zurück.
         """
-        global byteBuffer, byteBufferLength
+        self._buffer = np.zeros(self._length, dtype="uint8")
+        self._length = 0
 
-        byteBuffer[:] = np.zeros(len(byteBuffer), dtype="uint8")
-        byteBufferLength = 0
+    def reset_buffers(self) -> None:
+        """
+        Resets Dataport-Buffer and Byte-Buffer
+        """
+        reset_serialport_buffer(self.Dataport)
+        self._resetParserBuffer()
 
     def read_cli_response(self, timeout=1.0):
         """
@@ -153,7 +165,7 @@ class RadarParser:
         CLIport.reset_output_buffer()
         Dataport.reset_input_buffer()
         Dataport.reset_output_buffer()
-        self.resetParserBuffer()
+        self._resetParserBuffer()
 
         time.sleep(0.3)
 
@@ -162,7 +174,7 @@ class RadarParser:
 
         Dataport.reset_input_buffer()
         Dataport.reset_output_buffer()
-        self.resetParserBuffer()
+        self._resetParserBuffer()
 
         time.sleep(0.3)
 
@@ -180,7 +192,7 @@ class RadarParser:
                 # Vor sensorStart nochmal sicherstellen, dass keine alten Bytes im
                 # Datenport oder Parser liegen.
                 Dataport.reset_input_buffer()
-                self.resetParserBuffer()
+                self._resetParserBuffer()
 
                 response = self.send_cli_command(cmd, delay=0.1, timeout=0.5)
                 # TODO: responses verarbeiten -> Abfragen/Ausgeben oä
@@ -188,21 +200,21 @@ class RadarParser:
                 # Erste unvollständige Frames nach Start verwerfen.
                 time.sleep(0.3)
                 Dataport.reset_input_buffer()
-                self.resetParserBuffer()
+                self._resetParserBuffer()
 
             # TODO: jeweils Inhalt der ifs in eigene Methoden:
             elif cmd == "sensorStop":
                 response = self.send_cli_command(cmd, delay=0.05, timeout=0.3)
                 # TODO: responses verarbeiten -> Abfragen/Ausgeben oä
                 Dataport.reset_input_buffer()
-                self.resetParserBuffer()
+                self._resetParserBuffer()
 
             # TODO: jeweils Inhalt der ifs in eigene Methoden:
             elif cmd == "flushCfg":
                 response = self.send_cli_command(cmd, delay=0.05, timeout=0.3)
                 # TODO: responses verarbeiten -> Abfragen/Ausgeben oä
                 Dataport.reset_input_buffer()
-                self.resetParserBuffer()
+                self._resetParserBuffer()
 
             else:
                 response = self.send_cli_command(cmd, delay=0.05, timeout=0.3)
