@@ -85,7 +85,9 @@ class PointCloudLowPassFilter:
             self._tracks = [_PointTrack(float(x), float(y)) for x, y in points]
             return self._visible_points()
 
-        matches, unmatched_track_indices, unmatched_point_indices = self._match_points(points)
+        matches, unmatched_track_indices, unmatched_point_indices = self._match_points(
+            points
+        )
 
         # Bekannte Punkte mit einem exponentiellen Tiefpass glätten.
         for track_index, point_index in matches:
@@ -140,7 +142,9 @@ class PointCloudLowPassFilter:
             return [], set(range(num_tracks)), set()
 
         track_points = np.array([[track.x, track.y] for track in self._tracks])
-        distances = np.linalg.norm(track_points[:, np.newaxis, :] - points[np.newaxis, :, :], axis=2)
+        distances = np.linalg.norm(
+            track_points[:, np.newaxis, :] - points[np.newaxis, :, :], axis=2
+        )
 
         candidates = []
         for track_index in range(num_tracks):

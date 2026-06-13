@@ -3,6 +3,7 @@ from PyQt5 import QtWidgets
 import pyqtgraph as pg
 import time
 
+from radar.helper.debug_helper import debug_output
 from radar.helper.fixingdata import PointCloudLowPassFilter
 
 # original file without filter:
@@ -20,12 +21,12 @@ logging.basicConfig(level=logging.INFO)
 # Name der Radar-Konfigurationsdatei
 configFileName = "1642config.cfg"
 
-#TODO: in die __init__?
-#CLIport = {}
-#Dataport = {}
+# TODO: in die __init__?
+# CLIport = {}
+# Dataport = {}
 
 # Globaler Byte-Puffer für eingehende UART-Daten
-#TODO: weg, da ist in __init__?
+# TODO: weg, da ist in __init__?
 byteBuffer = np.zeros(2**15, dtype="uint8")
 byteBufferLength = 0
 
@@ -54,7 +55,7 @@ s = p.plot([], [], pen=None, symbol="o")
 
 # Zustandsbehafteter Tiefpass ausschließlich für die Darstellung.
 # Kleinere alpha-Werte glätten stärker, reagieren aber langsamer.
-#TODO: in die __init__ bzw eigene Methode?
+# TODO: in die __init__ bzw eigene Methode?
 visualizationFilter = PointCloudLowPassFilter(
     alpha=0.35,
     max_match_distance=0.20,
@@ -66,8 +67,8 @@ win.show()
 
 
 # Speicher für die letzten Frames.
-#TODO: in die __init__?
-#TODO: vll eher nicht --> zurückgeben --> weiterverwenden
+# TODO: in die __init__?
+# TODO: vll eher nicht --> zurückgeben --> weiterverwenden
 detObj = {}
 frameData = {}
 currentIndex = 0
@@ -78,25 +79,16 @@ lastFrameNumber = 0
 
 while True:
     try:
-        dataOk, detObj = radar_parser.update_with_filter(
-            detObj, s, visualizationFilter
-        )
+        dataOk, detObj = radar_parser.update_with_filter(detObj, s, visualizationFilter)
 
         if dataOk:
             frameData[currentIndex % MAX_FRAMES] = detObj
             currentIndex += 1
             lastFrameNumber = currentIndex
 
-        # Einmal pro Sekunde Debug-Ausgabe.
-        if time.time() - lastDebugTime > 1:
-            numObj = detObj.get("numObj", 0) if isinstance(detObj, dict) else 0
-            logging.debug(
-                f"bytes={radar_parser.Dataport.in_waiting}, "
-                f"dataOk={dataOk}, "
-                f"numObj={numObj}, "
-                f"frames={currentIndex}"
-            )
-            lastDebugTime = time.time()
+        lastDebugTime = debug_output(
+            radar_parser, dataOk, currentIndex, detObj, lastDebugTime, 1
+        )
 
         QtWidgets.QApplication.processEvents()
         time.sleep(0.03)
@@ -108,8 +100,6 @@ while True:
             radar_parser.send_cli_command("sensorStop", delay=0.3, timeout=1.0)
             time.sleep(0.3)
 
-            # radar_parser.Dataport.reset_input_buffer()
-            # radar_parser.resetParserBuffer()
             radar_parser.reset_buffers()
 
         except Exception as error:
