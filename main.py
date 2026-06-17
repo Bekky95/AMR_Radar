@@ -92,6 +92,7 @@ lastFrameNumber = 0
 
 while True:
     try:
+        # dataOk, detObj = radar_parser.update_without_filter(detObj, s)
         dataOk, detObj = radar_parser.update_with_filter(detObj, s, visualizationFilter)
 
         if dataOk:
@@ -105,7 +106,7 @@ while True:
 
         #TODO: -----------------------------------------------------!!!!
         # ----------------------------------------------------------!!!!
-        QtWidgets.QApplication.processEvents() #TODO: testlaufen lassen, nicht dass es update() heißen muss
+        QtWidgets.QApplication.processEvents()
         time.sleep(0.03)
 
     except KeyboardInterrupt:
