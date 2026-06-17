@@ -1,6 +1,7 @@
 import numpy as np
 from PyQt5 import QtWidgets
 import pyqtgraph as pg
+#import pyqtgraph.opengl as gl
 import time
 
 from radar.helper.debug_helper import debug_output
@@ -41,6 +42,18 @@ app = QtWidgets.QApplication([])
 
 # Plot konfigurieren.
 pg.setConfigOption("background", "w")
+
+# 3D Darstellung:
+# pg.mkQApp()
+# view = gl.GLViewWidget()
+# view.show()
+# ## create three grids, add each to the view
+# xgrid = gl.GLGridItem()
+# ygrid = gl.GLGridItem()
+# zgrid = gl.GLGridItem()
+# view.addItem(xgrid)
+# view.addItem(ygrid)
+# view.addItem(zgrid)
 
 win = pg.GraphicsLayoutWidget(title="2D scatter plot")
 p = win.addPlot()
@@ -90,7 +103,9 @@ while True:
             radar_parser, dataOk, currentIndex, detObj, lastDebugTime, 1
         )
 
-        QtWidgets.QApplication.processEvents()
+        #TODO: -----------------------------------------------------!!!!
+        # ----------------------------------------------------------!!!!
+        QtWidgets.QApplication.processEvents() #TODO: testlaufen lassen, nicht dass es update() heißen muss
         time.sleep(0.03)
 
     except KeyboardInterrupt:

@@ -6,7 +6,7 @@ import struct
 
 from radar.helper.byte_converter import bytes_to_uint16, bytes_to_int16
 from radar.helper.serial_helper import serial_port_closer, reset_serialport_buffer
-from readPortAutomatically import serial_ports
+from radar.readPortAutomatically import serial_ports
 
 pg.setConfigOptions(useOpenGL=False, antialias=False)
 
@@ -27,7 +27,8 @@ class RadarParser:
 
     def __init__(self, configFileName, buffer_size=2**15):
         # Byte-Puffer für eingehende UART-Daten:
-        self._buffer = np.zeros(buffer_size, dtype=np.uint8)
+        self._buffer_size = buffer_size
+        self._buffer = np.zeros(self._buffer_size, dtype=np.uint8)
         self._length = 0
 
         # Schnittstellen für Steuerbefehle und Datenstrom:
@@ -62,7 +63,7 @@ class RadarParser:
         neu konfiguriert wird. Dadurch bleiben keine alten oder unvollständigen
         Radar-Pakete im Parser zurück.
         """
-        self._buffer = np.zeros(self._length, dtype="uint8")
+        self._buffer = np.zeros(self._buffer_size, dtype="uint8")
         self._length = 0
 
     def reset_buffers(self) -> None:
@@ -296,7 +297,7 @@ class RadarParser:
             2 * freqSlopeConst * 1e12 * configParameters["numRangeBins"]
         )
 
-        configParameters["dopplerResolutionMps"] = (3e8) / (
+        configParameters["dopplerResolutionMps"] = 3e8 / (
             2
             * startFreq
             * 1e9
@@ -341,10 +342,6 @@ class RadarParser:
         Dieser TLV enthält erkannte Punkte mit Range-Index, Doppler-Index,
         Peak-Wert und den kartesischen Koordinaten x, y und z.
 
-        Args:
-            Dataport (serial.Serial): Serieller Datenport des Radarboards.
-            configParameters (dict): Berechnete Radarparameter aus der cfg-Datei.
-
         Returns:
             tuple[int, int, dict]:
                 dataOK:
@@ -354,8 +351,8 @@ class RadarParser:
                 detObj:
                     Dictionary mit erkannten Objekten.
         """
-        global byteBuffer  # TODO: Mit Klassenvar ersetzen
-        global byteBufferLength  # TODO: Mit Klassenvar ersetzen
+        #global byteBuffer  # TODO: Mit Klassenvar ersetzen
+        #global byteBufferLength  # TODO: Mit Klassenvar ersetzen
 
         OBJ_STRUCT_SIZE_BYTES = 12
         MMWDEMO_UART_MSG_DETECTED_POINTS = 1
@@ -375,40 +372,40 @@ class RadarParser:
         byteVec = np.frombuffer(readBuffer, dtype="uint8")
         byteCount = len(byteVec)
 
-        if (byteBufferLength + byteCount) < maxBufferSize:
-            byteBuffer[byteBufferLength : byteBufferLength + byteCount] = byteVec[
+        if (self._length + byteCount) < maxBufferSize:
+            self._buffer[self._length: self._length + byteCount] = byteVec[
                 :byteCount
             ]
-            byteBufferLength += byteCount
+            self._length += byteCount
 
-        if byteBufferLength > 16:
-            possibleLocs = np.where(byteBuffer == magicWord[0])[0]
+        if self._length > 16:
+            possibleLocs = np.where(self._buffer == magicWord[0])[0]
 
             startIdx = []
             for loc in possibleLocs:
-                check = byteBuffer[loc : loc + 8]
+                check = self._buffer[loc: loc + 8]
 
                 if np.all(check == magicWord):
                     startIdx.append(loc)
 
             if startIdx:
-                if startIdx[0] > 0 and startIdx[0] < byteBufferLength:
-                    byteBuffer[: byteBufferLength - startIdx[0]] = byteBuffer[
-                        startIdx[0] : byteBufferLength
+                if startIdx[0] > 0 and startIdx[0] < self._length:
+                    self._buffer[: self._length - startIdx[0]] = self._buffer[
+                        startIdx[0]: self._length
                     ]
-                    byteBuffer[byteBufferLength - startIdx[0] :] = np.zeros(
-                        len(byteBuffer[byteBufferLength - startIdx[0]:]), dtype="uint8"
+                    self._buffer[self._length - startIdx[0]:] = np.zeros(
+                        len(self._buffer[self._length - startIdx[0]:]), dtype="uint8"
                     )
-                    byteBufferLength -= startIdx[0]
+                    self._length -= startIdx[0]
 
-                if byteBufferLength < 0:
-                    byteBufferLength = 0
+                if self._length < 0:
+                    self._length = 0
 
                 word = [1, 2**8, 2**16, 2**24]
 
-                totalPacketLen = np.matmul(byteBuffer[12: 12 + 4], word)
+                totalPacketLen = np.matmul(self._buffer[12: 12 + 4], word)
 
-                if (byteBufferLength >= totalPacketLen) and (byteBufferLength != 0):
+                if (self._length >= totalPacketLen) and (self._length != 0):
                     magicOK = 1
 
         if magicOK:
@@ -416,41 +413,41 @@ class RadarParser:
 
             idX = 0
 
-            magicNumber = byteBuffer[idX: idX + 8]
+            magicNumber = self._buffer[idX: idX + 8]
             idX += 8
 
-            version = format(np.matmul(byteBuffer[idX: idX + 4], word), "x")
+            version = format(np.matmul(self._buffer[idX: idX + 4], word), "x")
             idX += 4
 
-            totalPacketLen = np.matmul(byteBuffer[idX: idX + 4], word)
+            totalPacketLen = np.matmul(self._buffer[idX: idX + 4], word)
             idX += 4
 
-            platform = format(np.matmul(byteBuffer[idX: idX + 4], word), "x")
+            platform = format(np.matmul(self._buffer[idX: idX + 4], word), "x")
             idX += 4
 
-            frameNumber = np.matmul(byteBuffer[idX: idX + 4], word)
+            frameNumber = np.matmul(self._buffer[idX: idX + 4], word)
             idX += 4
 
-            timeCpuCycles = np.matmul(byteBuffer[idX: idX + 4], word)
+            timeCpuCycles = np.matmul(self._buffer[idX: idX + 4], word)
             idX += 4
 
-            numDetectedObj = np.matmul(byteBuffer[idX: idX + 4], word)
+            numDetectedObj = np.matmul(self._buffer[idX: idX + 4], word)
             idX += 4
 
-            numTLVs = np.matmul(byteBuffer[idX: idX + 4], word)
+            numTLVs = np.matmul(self._buffer[idX: idX + 4], word)
             idX += 4
 
-            subFrameNumber = np.matmul(byteBuffer[idX: idX + 4], word)
+            subFrameNumber = np.matmul(self._buffer[idX: idX + 4], word)
             idX += 4
 
             for tlvIdx in range(numTLVs):
                 word = [1, 2**8, 2**16, 2**24]
 
                 try:
-                    tlv_type = np.matmul(byteBuffer[idX: idX + 4], word)
+                    tlv_type = np.matmul(self._buffer[idX: idX + 4], word)
                     idX += 4
 
-                    tlv_length = np.matmul(byteBuffer[idX: idX + 4], word)
+                    tlv_length = np.matmul(self._buffer[idX: idX + 4], word)
                     idX += 4
 
                 except Exception as e:
@@ -458,10 +455,10 @@ class RadarParser:
                     return 0, frameNumber, {}
 
                 if tlv_type == MMWDEMO_UART_MSG_DETECTED_POINTS:
-                    tlv_numObj = bytes_to_uint16(byteBuffer, idX)
+                    tlv_numObj = bytes_to_uint16(self._buffer, idX)
                     idX += 2
 
-                    xyzQ = bytes_to_uint16(byteBuffer, idX)
+                    xyzQ = bytes_to_uint16(self._buffer, idX)
                     idX += 2
 
                     if xyzQ < 0 or xyzQ > 15:
@@ -488,22 +485,22 @@ class RadarParser:
                     z = np.zeros(tlv_numObj, dtype="int16")
 
                     for objectNum in range(tlv_numObj):
-                        rangeIdx[objectNum] = bytes_to_uint16(byteBuffer, idX)
+                        rangeIdx[objectNum] = bytes_to_uint16(self._buffer, idX)
                         idX += 2
 
-                        dopplerIdx[objectNum] = bytes_to_int16(byteBuffer, idX)
+                        dopplerIdx[objectNum] = bytes_to_int16(self._buffer, idX)
                         idX += 2
 
-                        peakVal[objectNum] = bytes_to_uint16(byteBuffer, idX)
+                        peakVal[objectNum] = bytes_to_uint16(self._buffer, idX)
                         idX += 2
 
-                        x[objectNum] = bytes_to_int16(byteBuffer, idX)
+                        x[objectNum] = bytes_to_int16(self._buffer, idX)
                         idX += 2
 
-                        y[objectNum] = bytes_to_int16(byteBuffer, idX)
+                        y[objectNum] = bytes_to_int16(self._buffer, idX)
                         idX += 2
 
-                        z[objectNum] = bytes_to_int16(byteBuffer, idX)
+                        z[objectNum] = bytes_to_int16(self._buffer, idX)
                         idX += 2
 
                     rangeVal = rangeIdx * self.configParameters["rangeIdxToMeters"]
@@ -530,24 +527,24 @@ class RadarParser:
             # Remove already processed data from the buffer.
             # Wichtig: Das Paket muss auch entfernt werden, wenn byteBufferLength
             # genau gleich totalPacketLen ist.
-            if totalPacketLen > 0 and byteBufferLength >= totalPacketLen:
+            if 0 < totalPacketLen <= self._length:
                 shiftSize = int(totalPacketLen)
-                remainingBytes = byteBufferLength - shiftSize
+                remainingBytes = self._length - shiftSize
 
                 if remainingBytes > 0:
-                    byteBuffer[:remainingBytes] = byteBuffer[shiftSize:byteBufferLength]
+                    self._buffer[:remainingBytes] = self._buffer[shiftSize:self._length]
 
-                byteBuffer[remainingBytes:] = np.zeros(
-                    len(byteBuffer[remainingBytes:]), dtype="uint8"
+                self._buffer[remainingBytes:] = np.zeros(
+                    len(self._buffer[remainingBytes:]), dtype="uint8"
                 )
 
-                byteBufferLength = remainingBytes
+                self._length = remainingBytes
 
             else:
                 # Falls die Paketlänge unplausibel ist, Buffer zurücksetzen,
                 # damit der Parser nicht dauerhaft auf kaputten Daten hängen bleibt.
-                byteBuffer[:] = np.zeros(len(byteBuffer), dtype="uint8")
-                byteBufferLength = 0
+                self._buffer[:] = np.zeros(len(self._buffer), dtype="uint8")
+                self._length = 0
 
         return dataOK, frameNumber, detObj
 
@@ -567,9 +564,7 @@ class RadarParser:
         Returns:
             int: 1, wenn ein gültiges Datenpaket verarbeitet wurde, sonst 0.
         """
-        dataOk, frameNumber, cur_detObj = self.readAndParseData16xx(
-            self.Dataport, self.configParameters
-        )
+        dataOk, frameNumber, cur_detObj = self.readAndParseData16xx()
 
         if dataOk:
             if cur_detObj.get("numObj", 0) > 0:
@@ -599,24 +594,25 @@ class RadarParser:
             int: 1, wenn ein gültiges Datenpaket verarbeitet wurde, sonst 0.
         """
 
-        dataOk, frameNumber, cur_detObj = self.readAndParseData16xx(
-            self.Dataport, self.configParameters
-        )
+        dataOk, frameNumber, cur_detObj = self.readAndParseData16xx()
 
         if dataOk:
             if cur_detObj.get("numObj", 0) > 0:
                 raw_x = -cur_detObj["x"]
                 raw_y = cur_detObj["y"]
+                raw_z = cur_detObj["z"]  # Parameter existiert definitiv
+
+                # z wird auch gefiltert:
 
                 # Nur die Visualisierung glätten. detObj und frameData enthalten
                 # weiterhin die unveränderten Rohdaten des Radars.
-                filtered_x, filtered_y = cur_visualizationFilter.apply(raw_x, raw_y)
-                cur_s.setData(filtered_x, filtered_y)
+                filtered_x, filtered_y = cur_visualizationFilter.apply(raw_x, raw_y)#, raw_z)
+                cur_s.setData(filtered_x, filtered_y)#, filtered_z)
             else:
                 # Einen gültigen leeren Frame an den Filter weitergeben. Dadurch
                 # verschwinden bestätigte Punkte erst nach max_missing_frames und
                 # die Darstellung flackert bei einzelnen Aussetzern weniger.
-                filtered_x, filtered_y = cur_visualizationFilter.apply([], [])
+                filtered_x, filtered_y, filtered_z = cur_visualizationFilter.apply([], [])
                 cur_s.setData(filtered_x, filtered_y)
 
         # Wichtig: Nicht bei dataOk == 0 leeren.
