@@ -2,26 +2,18 @@ import serial
 import time
 import numpy as np
 import pyqtgraph as pg
+from pyqtgraph.Qt import QtWidgets
+import logging
 
 from radar.helper.byte_converter import bytes_to_uint16, bytes_to_int16
 from radar.helper.serial_helper import serial_port_closer, reset_serialport_buffer
 from radar.helper.PortFinder import serial_ports
+from radar.helper.fixingdata import PointCloudLowPassFilter
 
-pg.setConfigOptions(useOpenGL=False, antialias=False)
 
-from pyqtgraph.Qt import QtWidgets
-
-import logging
-
-# ------------------------------------------------------------------
-# GLOBAL VARIABLES
-OBJ_STRUCT_SIZE_BYTES = 12
 MAGIC_WORD = b"\x02\x01\x04\x03\x06\x05\x08\x07"
 
 
-# ------------------------------------------------------------------
-# RadarParser Class
-# ------------------------------------------------------------------
 class RadarParser:
     # TODO DataClass Configparser draus machen!!!
     def __init__(self, configFileName, buffer_size=2**15):
@@ -29,10 +21,14 @@ class RadarParser:
         self._buffer_size = buffer_size
         self._buffer = np.zeros(self._buffer_size, dtype=np.uint8)
         self._length = 0
+        self._obj_struct_size_bytes = 12
+        self._mmwdemo_uart_msg_detected_points = 1
 
         # Schnittstellen für Steuerbefehle und Datenstrom:
         self._CLIport: serial.Serial
         self._Dataport: serial.Serial
+
+        pg.setConfigOptions(useOpenGL=False, antialias=False)
 
         # Radarparameter aus der cfg-Datei berechnen:
         self.configParameters = self.parseConfigFile(configFileName)
@@ -41,9 +37,8 @@ class RadarParser:
         self._CLIport, self._Dataport = self.serialConfig(configFileName)
 
     def __del__(self):
-        if self._Dataport.is_open and self._CLIport.is_open:
-            self._Dataport.close()
-            self._CLIport.close()
+        serial_port_closer(self._Dataport)
+        serial_port_closer(self._CLIport)
 
     def close_serialports(self):
         serial_port_closer(self._Dataport)
@@ -148,10 +143,6 @@ class RadarParser:
         Returns:
             tuple[serial.Serial, serial.Serial]: Geöffneter CLI-Port und Datenport.
         """
-        # TODO: aus denen Klassenvar machen und übergeben:
-        # global CLIport
-        # global Dataport
-
         # TODO: aus dem Spaß eine eigene Funktion machen:
         serialPort = serial_ports()
 
@@ -360,18 +351,12 @@ class RadarParser:
                 detObj:
                     Dictionary mit erkannten Objekten.
         """
-        # global byteBuffer  # TODO: Mit Klassenvar ersetzen
-        # global byteBufferLength  # TODO: Mit Klassenvar ersetzen
 
-        OBJ_STRUCT_SIZE_BYTES = 12
-        MMWDEMO_UART_MSG_DETECTED_POINTS = 1
-        maxBufferSize = 2**15
-        magicWord = [2, 1, 4, 3, 6, 5, 8, 7]
         # TODO: MAGIC_WORD einbauen und separate Funktion
+        magicWord = [2, 1, 4, 3, 6, 5, 8, 7]
 
         magicOK = 0
         dataOK = 0
-        # frameNumber = 0
         detObj = {}
         tlv_type = 0
 
@@ -381,7 +366,7 @@ class RadarParser:
         byteVec = np.frombuffer(readBuffer, dtype="uint8")
         byteCount = len(byteVec)
 
-        if (self._length + byteCount) < maxBufferSize:
+        if (self._length + byteCount) < self._buffer_size:
             self._buffer[self._length : self._length + byteCount] = byteVec[:byteCount]
             self._length += byteCount
 
@@ -420,35 +405,13 @@ class RadarParser:
 
             idx = 12  # magicNumber (8 Bytes) + version (4 Bytes ) skippen
 
-            # magicNumber = self._buffer[idx : idx + 8]
-            # idx += 8
-            #
-            # version = format(np.matmul(self._buffer[idx : idx + 4], word), "x")
-            # idx += 4
-
             totalPacketLen = np.matmul(self._buffer[idx : idx + 4], word)
             idx += (
                 5 * 4
             )  # skip 4 felder (platform, frameNumber, timeCpuCycles, numDetectedObj)* 4 bytes + 4 Bytes für totalPacketLen
 
-            #
-            # platform = format(np.matmul(self._buffer[idx : idx + 4], word), "x")
-            # idx += 4
-
-            # frameNumber = np.matmul(self._buffer[idx : idx + 4], word)
-            # idx += 4
-
-            # timeCpuCycles = np.matmul(self._buffer[idx : idx + 4], word)
-            # idx += 4
-            #
-            # numDetectedObj = np.matmul(self._buffer[idx : idx + 4], word)
-            # idx += 4
-
             numTLVs = np.matmul(self._buffer[idx : idx + 4], word)
             idx += 2 * 4  # skip 2 felder * 4 bytes
-
-            # subFrameNumber = np.matmul(self._buffer[idx : idx + 4], word)
-            # idx += 4
 
             for _ in range(numTLVs):
                 word = [1, 2**8, 2**16, 2**24]
@@ -457,14 +420,11 @@ class RadarParser:
                     tlv_type = np.matmul(self._buffer[idx : idx + 4], word)
                     idx += 2 * 4  # skip ( tlv_length 4 bytes)
 
-                    # tlv_length = np.matmul(self._buffer[idx : idx + 4], word)
-                    # idx += 4
-
                 except Exception as e:
                     logging.error("TLV Header konnte nicht geladen werden: ", e)
                     return 0, {}
 
-                if tlv_type == MMWDEMO_UART_MSG_DETECTED_POINTS:
+                if tlv_type == self._mmwdemo_uart_msg_detected_points:
                     tlv_numObj = bytes_to_uint16(self._buffer, idx)
                     idx += 2
 
@@ -481,7 +441,7 @@ class RadarParser:
                         logging.error("Ungültige Objektanzahl: ", tlv_numObj)
                         return 0, {}
 
-                    neededBytes = tlv_numObj * OBJ_STRUCT_SIZE_BYTES
+                    neededBytes = tlv_numObj * self._obj_struct_size_bytes
 
                     if idx + neededBytes > totalPacketLen:
                         logging.error("Unvollständiges Paket:", tlv_numObj, "Objekte")
@@ -591,7 +551,9 @@ class RadarParser:
 
         return dataOk, cur_detObj
 
-    def update_with_filter(self, cur_detObj, cur_s, cur_visualizationFilter) -> tuple[int, dict]:
+    def update_with_filter(
+        self, cur_detObj, cur_s, cur_visualizationFilter: PointCloudLowPassFilter
+    ) -> tuple[int, dict]:
         """
         Liest neue Radardaten ein und aktualisiert den Scatter-Plot.
 
@@ -610,7 +572,7 @@ class RadarParser:
             if cur_detObj.get("numObj", 0) > 0:
                 raw_x = -cur_detObj["x"]
                 raw_y = cur_detObj["y"]
-                raw_z = cur_detObj["z"]  # Parameter existiert definitiv
+                # raw_z = cur_detObj["z"]  # Parameter existiert definitiv
 
                 # z wird auch gefiltert:
 
