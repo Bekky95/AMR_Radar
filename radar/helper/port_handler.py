@@ -19,6 +19,7 @@ class DataPortHandler(PortHandler):
     def __init__(self):
         self.cur_data_port = serial.Serial()
         super().__init__(self.cur_data_port)
+        pass
 
 
 class CliPortHandler(PortHandler):

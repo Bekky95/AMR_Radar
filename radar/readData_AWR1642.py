@@ -16,7 +16,7 @@ MAGIC_WORD = b"\x02\x01\x04\x03\x06\x05\x08\x07"
 
 class RadarParser:
     # TODO DataClass Configparser draus machen!!!
-    def __init__(self, configFileName: str, buffer_size: int = 2 ** 15) -> None:
+    def __init__(self, configFileName: str, buffer_size: int = 2**15) -> None:
         """
         :param configFileName: <name>.cfg file
         :param buffer_size: default 2 ** 15 (32768)
@@ -35,7 +35,7 @@ class RadarParser:
         pg.setConfigOptions(useOpenGL=False, antialias=False)
 
         # Radarparameter aus der cfg-Datei berechnen:
-        #self.configParameters = self.parseConfigFile(configFileName)
+        # self.configParameters = self.parseConfigFile(configFileName)
         self.configParameters = parseConfigFile(configFileName)
 
         # Serielle Ports konfigurieren und Radar starten:
@@ -90,7 +90,9 @@ class RadarParser:
 
         while time.time() < endTime:
             if self._CLIport.in_waiting > 0:
-                response += self._CLIport.read(self._CLIport.in_waiting).decode(errors="ignore")
+                response += self._CLIport.read(self._CLIport.in_waiting).decode(
+                    errors="ignore"
+                )
 
             time.sleep(0.01)
 
@@ -370,7 +372,7 @@ class RadarParser:
         byteCount = len(byteVec)
 
         if (self._length + byteCount) < self._buffer_size:
-            self._buffer[self._length: self._length + byteCount] = byteVec[:byteCount]
+            self._buffer[self._length : self._length + byteCount] = byteVec[:byteCount]
             self._length += byteCount
 
         if self._length > 16:
@@ -378,7 +380,7 @@ class RadarParser:
 
             startIdx = []
             for loc in possibleLocs:
-                check = self._buffer[loc: loc + 8]
+                check = self._buffer[loc : loc + 8]
 
                 if np.all(check == magicWord):
                     startIdx.append(loc)
@@ -386,41 +388,41 @@ class RadarParser:
             if startIdx:
                 if startIdx[0] > 0 and startIdx[0] < self._length:
                     self._buffer[: self._length - startIdx[0]] = self._buffer[
-                                                                 startIdx[0]: self._length
-                                                                 ]
-                    self._buffer[self._length - startIdx[0]:] = np.zeros(
-                        len(self._buffer[self._length - startIdx[0]:]), dtype="uint8"
+                        startIdx[0] : self._length
+                    ]
+                    self._buffer[self._length - startIdx[0] :] = np.zeros(
+                        len(self._buffer[self._length - startIdx[0] :]), dtype="uint8"
                     )
                     self._length -= startIdx[0]
 
                 if self._length < 0:
                     self._length = 0
 
-                word = [1, 2 ** 8, 2 ** 16, 2 ** 24]
+                word = [1, 2**8, 2**16, 2**24]
 
-                totalPacketLen = np.matmul(self._buffer[12: 12 + 4], word)
+                totalPacketLen = np.matmul(self._buffer[12 : 12 + 4], word)
 
                 if (self._length >= totalPacketLen) and (self._length != 0):
                     magicOK = 1
 
         if magicOK:
-            word = [1, 2 ** 8, 2 ** 16, 2 ** 24]
+            word = [1, 2**8, 2**16, 2**24]
 
             idx = 12  # magicNumber (8 Bytes) + version (4 Bytes ) skippen
 
-            totalPacketLen = np.matmul(self._buffer[idx: idx + 4], word)
+            totalPacketLen = np.matmul(self._buffer[idx : idx + 4], word)
             idx += (
-                    5 * 4
+                5 * 4
             )  # skip 4 felder (platform, frameNumber, timeCpuCycles, numDetectedObj)* 4 bytes + 4 Bytes für totalPacketLen
 
-            numTLVs = np.matmul(self._buffer[idx: idx + 4], word)
+            numTLVs = np.matmul(self._buffer[idx : idx + 4], word)
             idx += 2 * 4  # skip 2 felder * 4 bytes
 
             for _ in range(numTLVs):
-                word = [1, 2 ** 8, 2 ** 16, 2 ** 24]
+                word = [1, 2**8, 2**16, 2**24]
 
                 try:
-                    tlv_type = np.matmul(self._buffer[idx: idx + 4], word)
+                    tlv_type = np.matmul(self._buffer[idx : idx + 4], word)
                     idx += 2 * 4  # skip ( tlv_length 4 bytes)
 
                 except Exception as e:
@@ -438,7 +440,7 @@ class RadarParser:
                         logging.error("Ungültiges xyzQFormat:", xyzQ)
                         return 0, {}
 
-                    tlv_xyzQFormat = 2 ** xyzQ
+                    tlv_xyzQFormat = 2**xyzQ
 
                     if tlv_numObj < 0 or tlv_numObj > 200:
                         logging.error("Ungültige Objektanzahl: ", tlv_numObj)
@@ -477,7 +479,9 @@ class RadarParser:
                         idx += 2
 
                     rangeVal = rangeIdx * self.configParameters["rangeIdxToMeters"]
-                    dopplerVal = dopplerIdx * self.configParameters["dopplerResolutionMps"]
+                    dopplerVal = (
+                        dopplerIdx * self.configParameters["dopplerResolutionMps"]
+                    )
 
                     x = x / tlv_xyzQFormat
                     y = y / tlv_xyzQFormat
@@ -505,7 +509,9 @@ class RadarParser:
                 remainingBytes = self._length - shiftSize
 
                 if remainingBytes > 0:
-                    self._buffer[:remainingBytes] = self._buffer[shiftSize: self._length]
+                    self._buffer[:remainingBytes] = self._buffer[
+                        shiftSize : self._length
+                    ]
 
                 self._buffer[remainingBytes:] = np.zeros(
                     len(self._buffer[remainingBytes:]), dtype="uint8"
@@ -555,7 +561,7 @@ class RadarParser:
         return dataOk, cur_detObj
 
     def update_with_filter(
-            self, cur_detObj, cur_s, cur_visualizationFilter: PointCloudLowPassFilter
+        self, cur_detObj, cur_s, cur_visualizationFilter: PointCloudLowPassFilter
     ) -> tuple[int, dict]:
         """
         Liest neue Radardaten ein und aktualisiert den Scatter-Plot.
@@ -581,7 +587,9 @@ class RadarParser:
 
                 # Nur die Visualisierung glätten. detObj und frameData enthalten
                 # weiterhin die unveränderten Rohdaten des Radars.
-                filtered_x, filtered_y = cur_visualizationFilter.apply(raw_x, raw_y)  # , raw_z)
+                filtered_x, filtered_y = cur_visualizationFilter.apply(
+                    raw_x, raw_y
+                )  # , raw_z)
                 cur_s.setData(filtered_x, filtered_y)  # , filtered_z)
             else:
                 # Einen gültigen leeren Frame an den Filter weitergeben. Dadurch

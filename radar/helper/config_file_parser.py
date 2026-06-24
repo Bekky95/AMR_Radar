@@ -52,7 +52,7 @@ def parseConfigFile(configFileName) -> dict:
 
         if splitWords[0] == "profileCfg":
             profileCfg_dict = parse_profile_cfg(splitWords)
-            
+
             # startFreq = int(float(splitWords[2]))
             # idleTime = int(splitWords[3])
             # rampEndTime = float(splitWords[5])
@@ -137,7 +137,6 @@ def parse_profile_cfg(words: list[str]) -> dict:
         "rampEndTime": float(words[5]),
         "freqSlopeConst": float(words[8]),
         "numAdcSamples": int(words[10]),
-
     }
     numAdcSamplesRoundTo2 = 1
     while cur_dict["numAdcSamples"] > numAdcSamplesRoundTo2:
@@ -160,5 +159,3 @@ def parse_frame_cfg(words: list[str]) -> dict:
         "numLoops": loops,
         "numChirpsPerFrame": (chirp_end - chirp_start + 1) * loops,
     }
-
-
