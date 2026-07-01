@@ -185,7 +185,7 @@ class RadarParser:
 
         return response
 
-    def _reset_all_buffers(self):
+    def _reset_all_buffers(self) -> None:
         """
         resets input and output buffers for all Serial Ports and parser Buffer
         """
@@ -195,10 +195,9 @@ class RadarParser:
         self._Dataport.reset_output_buffer()
         self._resetParserBuffer()
 
-    def _read_dataport_buffer(self) -> tuple[np.typing.NDArray[np.uint8], int]:
+    def _read_dataport_buffer(self) -> None:
         """
         reads Dataport Buffer, converts it to np.ndarray
-        :return: byteVec, byteCount
         """
         readBuffer = self._Dataport.read(size=self._Dataport.in_waiting)
         if readBuffer is None:
@@ -207,13 +206,18 @@ class RadarParser:
         byteVec = np.frombuffer(readBuffer, dtype="uint8")
         byteCount = len(byteVec)
 
-        return byteVec, byteCount
+        self._adjust_buffer_length(byteCount, byteVec)
+
+    def _adjust_buffer_length(self, in_byteCount, in_byteVec) -> None:
+        if (self._length + in_byteCount) < self._buffer_size:
+            self._buffer[self._length: self._length + in_byteCount] = in_byteVec[:in_byteCount]
+            self._length += in_byteCount
 
     # PUBLIC-METHODS------------------------------------------------------------------
-    def get_dataport_in_waiting(self):
+    def get_dataport_in_waiting(self) -> int:
         return self._Dataport.in_waiting
 
-    def close_serialports(self):
+    def close_serialports(self) -> None:
         serial_port_closer(self._Dataport)
         serial_port_closer(self._CLIport)
 
@@ -275,11 +279,7 @@ class RadarParser:
         detObj = {}
         tlv_type = 0
 
-        byteVec, byteCount = self._read_dataport_buffer()
-
-        if (self._length + byteCount) < self._buffer_size:
-            self._buffer[self._length: self._length + byteCount] = byteVec[:byteCount]
-            self._length += byteCount
+        self._read_dataport_buffer()
 
         if self._length > 16:
             possibleLocs = np.where(self._buffer == magicWord[0])[0]
