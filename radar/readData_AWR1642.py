@@ -47,11 +47,6 @@ class RadarParser:
         serial_port_closer(self._CLIport)
 
     # PRIVATE-METHODS------------------------------------------------------------------
-
-    def _close_serialports(self):
-        serial_port_closer(self._Dataport)
-        serial_port_closer(self._CLIport)
-
     def _serialConfig(self, configFileName) -> tuple[serial.Serial, serial.Serial]:
         """
         Öffnet die seriellen Schnittstellen zum AWR1642-Radarboard und sendet die
@@ -199,6 +194,9 @@ class RadarParser:
         self._resetParserBuffer()
 
     # PUBLIC-METHODS------------------------------------------------------------------
+    def close_serialports(self):
+        serial_port_closer(self._Dataport)
+        serial_port_closer(self._CLIport)
 
     def reset_dataport_parser_buffers(self) -> None:
         """
@@ -454,7 +452,7 @@ class RadarParser:
                 # weiterhin die unveränderten Rohdaten des Radars.
                 filtered_x, filtered_y = cur_visualizationFilter.apply(
                     raw_x, raw_y
-                )  # , raw_z)
+                )
                 cur_s.setData(filtered_x, filtered_y)  # , filtered_z)
             else:
                 # Einen gültigen leeren Frame an den Filter weitergeben. Dadurch

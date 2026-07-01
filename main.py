@@ -77,7 +77,6 @@ while True:
         try:
             radar_parser.send_stop_command(delay=0.3)
             time.sleep(0.3)
-
             radar_parser.reset_dataport_parser_buffers()
 
         except Exception as error:
@@ -85,7 +84,7 @@ while True:
             raise error
 
         try:
-            radar_parser._close_serialports()
+            radar_parser.close_serialports()
             win.close()
 
         except Exception as error:
