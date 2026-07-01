@@ -57,7 +57,7 @@ lastFrameNumber = 0
 
 while True:
     try:
-        dataOk, detObj = radar_parser.update_with_filter(detObj, s, visualizationFilter)
+        dataOk, detObj = radar_parser.update_with_filter(s, visualizationFilter)
 
         if dataOk:
             frameData[currentIndex % MAX_FRAMES] = detObj

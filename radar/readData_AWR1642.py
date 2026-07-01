@@ -430,7 +430,7 @@ class RadarParser:
 
     # UPDATE------------------------------------------------------------------
     def update_with_filter(
-        self, cur_detObj, cur_s, cur_visualizationFilter: PointCloudLowPassFilter
+        self, cur_s, cur_visualizationFilter: PointCloudLowPassFilter
     ) -> tuple[int, dict]:
         """
         Liest neue Radardaten ein und aktualisiert den Scatter-Plot.
