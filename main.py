@@ -57,7 +57,6 @@ lastFrameNumber = 0
 
 while True:
     try:
-        # dataOk, detObj = radar_parser.update_without_filter(detObj, s)
         dataOk, detObj = radar_parser.update_with_filter(detObj, s, visualizationFilter)
 
         if dataOk:
@@ -86,7 +85,7 @@ while True:
             raise error
 
         try:
-            radar_parser.close_serialports()
+            radar_parser._close_serialports()
             win.close()
 
         except Exception as error:

@@ -39,20 +39,81 @@ class RadarParser:
         self.configParameters = parseConfigFile(configFileName)
 
         # Serielle Ports konfigurieren und Radar starten:
-        self._CLIport, self._Dataport = self.serialConfig(configFileName)
+        self._CLIport, self._Dataport = self._serialConfig(configFileName)
         self._resetParserBuffer()
 
     def __del__(self):
         serial_port_closer(self._Dataport)
         serial_port_closer(self._CLIport)
 
-    def close_serialports(self):
+    # PRIVATE-METHODS------------------------------------------------------------------
+
+    def _close_serialports(self):
         serial_port_closer(self._Dataport)
         serial_port_closer(self._CLIport)
 
-    # ------------------------------------------------------------------
-    # SERIAL CONFIGURATION
-    # ------------------------------------------------------------------
+    def _serialConfig(self, configFileName) -> tuple[serial.Serial, serial.Serial]:
+        """
+        Öffnet die seriellen Schnittstellen zum AWR1642-Radarboard und sendet die
+        Konfiguration kontrolliert an das Board.
+
+        Die Funktion stoppt zuerst einen eventuell noch laufenden Sensor, leert alle
+        seriellen Puffer und sendet anschließend jede cfg-Zeile einzeln an das Board.
+        Nach jedem Befehl wird die Antwort des Boards gelesen, damit Fehler beim
+        Konfigurieren sichtbar werden.
+
+        Args:
+            configFileName (str): Pfad zur Radar-Konfigurationsdatei.
+
+        Returns:
+            tuple[serial.Serial, serial.Serial]: Geöffneter CLI-Port und Datenport.
+        """
+        serialPort = serial_ports()
+        self._CLIport = serial.Serial(serialPort["config"], 115200, timeout=0.2)
+        self._Dataport = serial.Serial(serialPort["data"], 921600, timeout=0.05)
+
+        self._reset_all_buffers()
+
+        time.sleep(0.3)
+
+        # Falls der Sensor noch aus einem vorherigen Lauf streamt, sauber stoppen.
+        self.send_stop_command(delay=0.2)
+        self.reset_dataport_parser_buffers()
+
+        time.sleep(0.3)
+
+        with open(configFileName, "r", encoding="utf-8") as configFile:
+            config = [line.rstrip("\r\n") for line in configFile]
+
+        for line in config:
+            cmd = line.strip()
+
+            if cmd == "" or cmd.startswith("%"):
+                continue
+
+            if cmd == "sensorStart":
+                # Vor sensorStart nochmal sicherstellen, dass keine alten Bytes im
+                # Datenport oder Parser liegen.
+                self.reset_dataport_parser_buffers()
+                self.send_start_command(delay=0.1, timeout=0.5)
+                # Erste unvollständige Frames nach Start verwerfen.
+                time.sleep(0.3)
+                self.reset_dataport_parser_buffers()
+
+            elif cmd == "sensorStop":
+                self.send_stop_command(delay=0.05)
+                self.reset_dataport_parser_buffers()
+
+            elif cmd == "flushCfg":
+                self.send_flush_command(delay=0.05, timeout=0.3)
+                self.reset_dataport_parser_buffers()
+
+            else:
+                self._send_cli_command(cmd, delay=0.05, timeout=0.3)
+                logging.debug(f"command that is not sensorStart/-Stop or flushCfg: {cmd}")
+
+        return self._CLIport, self._Dataport
+
     def _resetParserBuffer(self):
         """
         Leert den globalen UART-Parser-Puffer.
@@ -137,6 +198,8 @@ class RadarParser:
         self._Dataport.reset_output_buffer()
         self._resetParserBuffer()
 
+    # PUBLIC-METHODS------------------------------------------------------------------
+
     def reset_dataport_parser_buffers(self) -> None:
         """
         Resets Dataport-Buffer and Byte-Buffer
@@ -155,67 +218,6 @@ class RadarParser:
     def send_flush_command(self, delay: float | int, timeout: float | int):
         """ calls _send_cli_command() for "flushCfg" """
         self._send_cli_command("flushCfg", delay=delay, timeout=timeout)
-
-    def serialConfig(self, configFileName) -> tuple[serial.Serial, serial.Serial]:
-        """
-        Öffnet die seriellen Schnittstellen zum AWR1642-Radarboard und sendet die
-        Konfiguration kontrolliert an das Board.
-
-        Die Funktion stoppt zuerst einen eventuell noch laufenden Sensor, leert alle
-        seriellen Puffer und sendet anschließend jede cfg-Zeile einzeln an das Board.
-        Nach jedem Befehl wird die Antwort des Boards gelesen, damit Fehler beim
-        Konfigurieren sichtbar werden.
-
-        Args:
-            configFileName (str): Pfad zur Radar-Konfigurationsdatei.
-
-        Returns:
-            tuple[serial.Serial, serial.Serial]: Geöffneter CLI-Port und Datenport.
-        """
-        serialPort = serial_ports()
-        self._CLIport = serial.Serial(serialPort["config"], 115200, timeout=0.2)
-        self._Dataport = serial.Serial(serialPort["data"], 921600, timeout=0.05)
-
-        self._reset_all_buffers()
-
-        time.sleep(0.3)
-
-        # Falls der Sensor noch aus einem vorherigen Lauf streamt, sauber stoppen.
-        self.send_stop_command(delay=0.2)
-        self.reset_dataport_parser_buffers()
-
-        time.sleep(0.3)
-
-        with open(configFileName, "r", encoding="utf-8") as configFile:
-            config = [line.rstrip("\r\n") for line in configFile]
-
-        for line in config:
-            cmd = line.strip()
-
-            if cmd == "" or cmd.startswith("%"):
-                continue
-
-            if cmd == "sensorStart":
-                # Vor sensorStart nochmal sicherstellen, dass keine alten Bytes im
-                # Datenport oder Parser liegen.
-                self.reset_dataport_parser_buffers()
-                self.send_start_command(delay=0.1, timeout=0.5)
-                # Erste unvollständige Frames nach Start verwerfen.
-                time.sleep(0.3)
-                self.reset_dataport_parser_buffers()
-
-            elif cmd == "sensorStop":
-                self.send_stop_command(delay=0.05)
-                self.reset_dataport_parser_buffers()
-
-            elif cmd == "flushCfg":
-                self.send_flush_command(delay=0.05, timeout=0.3)
-                self.reset_dataport_parser_buffers()
-
-            else:
-                self._send_cli_command(cmd, delay=0.05, timeout=0.3)
-
-        return self._CLIport, self._Dataport
 
     def readAndParseData16xx(self) -> tuple[int, dict]:
         """
@@ -426,9 +428,7 @@ class RadarParser:
 
         return dataOK, detObj
 
-    # ------------------------------------------------------------------
-    # PLOT UPDATE
-    # ------------------------------------------------------------------
+    # UPDATE------------------------------------------------------------------
     def update_with_filter(
         self, cur_detObj, cur_s, cur_visualizationFilter: PointCloudLowPassFilter
     ) -> tuple[int, dict]:
