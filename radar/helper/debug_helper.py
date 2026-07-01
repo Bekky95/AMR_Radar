@@ -7,13 +7,20 @@ def debug_output(
 ) -> float:
     """
      Einmal pro sec Sekunden Debug-Ausgabe.
-    :param sec: Sekunden
-    :return: float
+
+    :param radar_parser:
+    :param dataOk:
+    :param currentIndex:
+    :param detObj:
+    :param lastDebugTime:
+    :param sec: Sekunden Intervall
+
+    :return: current time
     """
     if time.time() - lastDebugTime > sec:
         numObj = detObj.get("numObj", 0) if isinstance(detObj, dict) else 0
         logging.debug(
-            f"bytes={radar_parser.Dataport.in_waiting}, "
+            f"bytes={radar_parser._Dataport.in_waiting}, "
             f"dataOk={dataOk}, "
             f"numObj={numObj}, "
             f"frames={currentIndex}"

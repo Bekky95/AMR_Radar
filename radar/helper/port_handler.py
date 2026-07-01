@@ -1,5 +1,6 @@
 import serial
 
+"""currently not used """
 
 class PortHandler:
     def __init__(self, cur_port: serial.Serial):

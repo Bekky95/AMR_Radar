@@ -15,7 +15,7 @@ MAGIC_WORD = b"\x02\x01\x04\x03\x06\x05\x08\x07"
 
 
 class RadarParser:
-    # TODO DataClass Configparser draus machen!!!
+
     def __init__(self, configFileName: str, buffer_size: int = 2**15) -> None:
         """
         :param configFileName: <name>.cfg file
@@ -40,8 +40,7 @@ class RadarParser:
 
         # Serielle Ports konfigurieren und Radar starten:
         self._CLIport, self._Dataport = self.serialConfig(configFileName)
-        # TODO sobald separate file config_handler.py steht das einkommentieren:
-        # self._resetParserBuffer()
+        self._resetParserBuffer()
 
     def __del__(self):
         serial_port_closer(self._Dataport)
@@ -65,14 +64,7 @@ class RadarParser:
         self._buffer = np.zeros(self._buffer_size, dtype="uint8")
         self._length = 0
 
-    def reset_buffers(self) -> None:
-        """
-        Resets Dataport-Buffer and Byte-Buffer
-        """
-        reset_serialport_buffer(self._Dataport)
-        self._resetParserBuffer()
-
-    def read_cli_response(self, timeout=1.0):
+    def _read_cli_response(self, timeout=1.0):
         """
         Liest die Antwort des Radarboards vom CLI-Port.
 
@@ -98,7 +90,7 @@ class RadarParser:
 
         return response.strip()
 
-    def send_cli_command(self, command, delay=0.05, timeout=1.0) -> str:
+    def _send_cli_command(self, command, delay=0.05, timeout=1.0) -> str:
         """
         Sendet einen CLI-Befehl an das Radarboard und liest anschließend die Antwort.
 
@@ -114,14 +106,13 @@ class RadarParser:
         Returns:
             str: Antwort des Radarboards.
         """
-
         self._CLIport.reset_input_buffer()
         self._CLIport.write((command + "\r\n").encode())
         self._CLIport.flush()
 
         time.sleep(delay)
 
-        response = self.read_cli_response(timeout=timeout)
+        response = self._read_cli_response(timeout=timeout)
 
         if response:
             lastLine = response.splitlines()[-1]
@@ -135,6 +126,35 @@ class RadarParser:
             logging.error(response)
 
         return response
+
+    def _reset_all_buffers(self):
+        """
+        resets input and output buffers for all Serial Ports and parser Buffer
+        """
+        self._CLIport.reset_input_buffer()
+        self._CLIport.reset_output_buffer()
+        self._Dataport.reset_input_buffer()
+        self._Dataport.reset_output_buffer()
+        self._resetParserBuffer()
+
+    def reset_dataport_parser_buffers(self) -> None:
+        """
+        Resets Dataport-Buffer and Byte-Buffer
+        """
+        reset_serialport_buffer(self._Dataport)
+        self._resetParserBuffer()
+
+    def send_stop_command(self, delay: float | int):
+        """ calls _send_cli_command() for "sensorStop", timeout ist default 1.0 """
+        self._send_cli_command("sensorStop", delay=delay, timeout=1.0)
+
+    def send_start_command(self, delay: float | int, timeout: float | int):
+        """ calls _send_cli_command() for "sensorStart" """
+        self._send_cli_command("sensorStart", delay=delay, timeout=timeout)
+
+    def send_flush_command(self, delay: float | int, timeout: float | int):
+        """ calls _send_cli_command() for "flushCfg" """
+        self._send_cli_command("flushCfg", delay=delay, timeout=timeout)
 
     def serialConfig(self, configFileName) -> tuple[serial.Serial, serial.Serial]:
         """
@@ -152,27 +172,17 @@ class RadarParser:
         Returns:
             tuple[serial.Serial, serial.Serial]: Geöffneter CLI-Port und Datenport.
         """
-        # TODO: aus dem Spaß eine eigene Funktion machen:
         serialPort = serial_ports()
-
         self._CLIport = serial.Serial(serialPort["config"], 115200, timeout=0.2)
         self._Dataport = serial.Serial(serialPort["data"], 921600, timeout=0.05)
 
-        # TODO: Buffer reset allgemeine Funktion damit das nicht so aussieht
-        self._CLIport.reset_input_buffer()
-        self._CLIport.reset_output_buffer()
-        self._Dataport.reset_input_buffer()
-        self._Dataport.reset_output_buffer()
-        self._resetParserBuffer()
+        self._reset_all_buffers()
 
         time.sleep(0.3)
 
         # Falls der Sensor noch aus einem vorherigen Lauf streamt, sauber stoppen.
-        self.send_cli_command("sensorStop", delay=0.2, timeout=1.0)
-
-        self._Dataport.reset_input_buffer()
-        self._Dataport.reset_output_buffer()
-        self._resetParserBuffer()
+        self.send_stop_command(delay=0.2)
+        self.reset_dataport_parser_buffers()
 
         time.sleep(0.3)
 
@@ -185,143 +195,27 @@ class RadarParser:
             if cmd == "" or cmd.startswith("%"):
                 continue
 
-            # TODO: jeweils Inhalt der ifs in eigene Methoden:
             if cmd == "sensorStart":
                 # Vor sensorStart nochmal sicherstellen, dass keine alten Bytes im
                 # Datenport oder Parser liegen.
-                self._Dataport.reset_input_buffer()
-                self._resetParserBuffer()
-
-                self.send_cli_command(cmd, delay=0.1, timeout=0.5)
-
+                self.reset_dataport_parser_buffers()
+                self.send_start_command(delay=0.1, timeout=0.5)
                 # Erste unvollständige Frames nach Start verwerfen.
                 time.sleep(0.3)
-                self._Dataport.reset_input_buffer()
-                self._resetParserBuffer()
+                self.reset_dataport_parser_buffers()
 
-            # TODO: jeweils Inhalt der ifs in eigene Methoden:
             elif cmd == "sensorStop":
-                self.send_cli_command(cmd, delay=0.05, timeout=0.3)
-                self._Dataport.reset_input_buffer()
-                self._resetParserBuffer()
+                self.send_stop_command(delay=0.05)
+                self.reset_dataport_parser_buffers()
 
-            # TODO: jeweils Inhalt der ifs in eigene Methoden:
             elif cmd == "flushCfg":
-                self.send_cli_command(cmd, delay=0.05, timeout=0.3)
-                self._Dataport.reset_input_buffer()
-                self._resetParserBuffer()
+                self.send_flush_command(delay=0.05, timeout=0.3)
+                self.reset_dataport_parser_buffers()
 
             else:
-                self.send_cli_command(cmd, delay=0.05, timeout=0.3)
+                self._send_cli_command(cmd, delay=0.05, timeout=0.3)
 
         return self._CLIport, self._Dataport
-
-    # def parseConfigFile(self, configFileName):
-    #     """
-    #     Liest die wichtigsten Radarparameter aus der cfg-Datei und berechnet daraus
-    #     weitere Messgrößen für die Auswertung.
-    #
-    #     Die Funktion wertet insbesondere die Zeilen `profileCfg` und `frameCfg` aus.
-    #     Daraus werden unter anderem berechnet:
-    #     - Anzahl der Range-Bins
-    #     - Anzahl der Doppler-Bins
-    #     - Range-Auflösung in Metern
-    #     - Doppler-Auflösung in m/s
-    #     - maximale Reichweite
-    #     - maximale Geschwindigkeit
-    #
-    #     Diese Werte werden später verwendet, um Rohdaten aus dem UART-Datenstrom in
-    #     physikalische Größen umzuwandeln.
-    #
-    #     Args:
-    #         configFileName (str): Pfad zur Radar-Konfigurationsdatei.
-    #
-    #     Returns:
-    #         dict: Dictionary mit berechneten Radarparametern.
-    #     """
-    #     configParameters = {}
-    #
-    #     with open(configFileName, "r", encoding="utf-8") as configFile:
-    #         config = [line.rstrip("\r\n") for line in configFile]
-    #
-    #     numTxAnt = 2
-    #     startFreq: int = 0
-    #     idleTime: int = 0
-    #     rampEndTime: float = 0.0
-    #     freqSlopeConst: float = 0.0
-    #     numAdcSamples: int = 0
-    #     numAdcSamplesRoundTo2: int = 1
-    #     digOutSampleRate: int = 0
-    #     chirpStartIdx: int = 0
-    #     chirpEndIdx: int = 0
-    #     numLoops: int = 0
-    #     numChirpsPerFrame: int = 0
-    #
-    #     profileFound = False
-    #     frameFound = False
-    #
-    #     for line in config:
-    #         splitWords = line.split(" ")
-    #
-    #         if len(splitWords) == 0:
-    #             continue
-    #
-    #         # Anzahl der Antennen für die verwendete AWR1642-Konfiguration.
-    #         # numRxAnt = 4
-    #
-    #         if "profileCfg" in splitWords[0]:
-    #             startFreq = int(float(splitWords[2]))
-    #             idleTime = int(splitWords[3])
-    #             rampEndTime = float(splitWords[5])
-    #             freqSlopeConst = float(splitWords[8])
-    #             numAdcSamples = int(splitWords[10])
-    #
-    #             numAdcSamplesRoundTo2 = 1
-    #             while numAdcSamples > numAdcSamplesRoundTo2:
-    #                 numAdcSamplesRoundTo2 *= 2
-    #
-    #             digOutSampleRate = int(splitWords[11])
-    #             profileFound = True
-    #
-    #         elif "frameCfg" in splitWords[0]:
-    #             chirpStartIdx = int(splitWords[1])
-    #             chirpEndIdx = int(splitWords[2])
-    #             numLoops = int(splitWords[3])
-    #             numChirpsPerFrame = (chirpEndIdx - chirpStartIdx + 1) * numLoops
-    #
-    #             frameFound = True
-    #
-    #     if not profileFound or not frameFound:
-    #         raise ValueError(f"Config missing profileCfg {profileFound} or frameCfg {frameFound}")
-    #
-    #     configParameters["numDopplerBins"] = numChirpsPerFrame / numTxAnt
-    #     configParameters["numRangeBins"] = numAdcSamplesRoundTo2
-    #
-    #     configParameters["rangeResolutionMeters"] = (3e8 * digOutSampleRate * 1e3) / (
-    #             2 * freqSlopeConst * 1e12 * numAdcSamples
-    #     )
-    #
-    #     configParameters["rangeIdxToMeters"] = (3e8 * digOutSampleRate * 1e3) / (
-    #             2 * freqSlopeConst * 1e12 * configParameters["numRangeBins"]
-    #     )
-    #
-    #     configParameters["dopplerResolutionMps"] = 3e8 / (
-    #             2
-    #             * startFreq
-    #             * 1e9
-    #             * (idleTime + rampEndTime)
-    #             * 1e-6
-    #             * configParameters["numDopplerBins"]
-    #             * numTxAnt
-    #     )
-    #
-    #     configParameters["maxRange"] = (300 * 0.9 * digOutSampleRate) / (2 * freqSlopeConst * 1e3)
-    #
-    #     configParameters["maxVelocity"] = (3e8) / (
-    #             4 * startFreq * 1e9 * (idleTime + rampEndTime) * 1e-6 * numTxAnt
-    #     )
-    #
-    #     return configParameters
 
     def readAndParseData16xx(self) -> tuple[int, dict]:
         """
@@ -372,7 +266,7 @@ class RadarParser:
         byteCount = len(byteVec)
 
         if (self._length + byteCount) < self._buffer_size:
-            self._buffer[self._length : self._length + byteCount] = byteVec[:byteCount]
+            self._buffer[self._length: self._length + byteCount] = byteVec[:byteCount]
             self._length += byteCount
 
         if self._length > 16:
@@ -380,18 +274,18 @@ class RadarParser:
 
             startIdx = []
             for loc in possibleLocs:
-                check = self._buffer[loc : loc + 8]
+                check = self._buffer[loc: loc + 8]
 
                 if np.all(check == magicWord):
                     startIdx.append(loc)
 
             if startIdx:
-                if startIdx[0] > 0 and startIdx[0] < self._length:
+                if 0 < startIdx[0] < self._length:
                     self._buffer[: self._length - startIdx[0]] = self._buffer[
-                        startIdx[0] : self._length
+                        startIdx[0]: self._length
                     ]
-                    self._buffer[self._length - startIdx[0] :] = np.zeros(
-                        len(self._buffer[self._length - startIdx[0] :]), dtype="uint8"
+                    self._buffer[self._length - startIdx[0]:] = np.zeros(
+                        len(self._buffer[self._length - startIdx[0]:]), dtype="uint8"
                     )
                     self._length -= startIdx[0]
 
@@ -400,7 +294,7 @@ class RadarParser:
 
                 word = [1, 2**8, 2**16, 2**24]
 
-                totalPacketLen = np.matmul(self._buffer[12 : 12 + 4], word)
+                totalPacketLen = np.matmul(self._buffer[12: 12 + 4], word)
 
                 if (self._length >= totalPacketLen) and (self._length != 0):
                     magicOK = 1
@@ -410,19 +304,19 @@ class RadarParser:
 
             idx = 12  # magicNumber (8 Bytes) + version (4 Bytes ) skippen
 
-            totalPacketLen = np.matmul(self._buffer[idx : idx + 4], word)
+            totalPacketLen = np.matmul(self._buffer[idx: idx + 4], word)
             idx += (
                 5 * 4
             )  # skip 4 felder (platform, frameNumber, timeCpuCycles, numDetectedObj)* 4 bytes + 4 Bytes für totalPacketLen
 
-            numTLVs = np.matmul(self._buffer[idx : idx + 4], word)
+            numTLVs = np.matmul(self._buffer[idx: idx + 4], word)
             idx += 2 * 4  # skip 2 felder * 4 bytes
 
             for _ in range(numTLVs):
                 word = [1, 2**8, 2**16, 2**24]
 
                 try:
-                    tlv_type = np.matmul(self._buffer[idx : idx + 4], word)
+                    tlv_type = np.matmul(self._buffer[idx: idx + 4], word)
                     idx += 2 * 4  # skip ( tlv_length 4 bytes)
 
                 except Exception as e:
@@ -457,6 +351,11 @@ class RadarParser:
                     peakVal = np.zeros(tlv_numObj, dtype="uint16")
                     x = np.zeros(tlv_numObj, dtype="int16")
                     y = np.zeros(tlv_numObj, dtype="int16")
+                    # unused, because it needs the Dev Board, which has a second Antenna
+                    # and this second antenna ist essencial für 3D Data
+                    # --> Dev Board = ODS "Boost" Board
+                    # https://github.com/ibaiGorordo/AWR1843-Read-Data-Python-MMWAVE-SDK-3-/issues/1
+                    # !!! z var has to be read otherwise the point cloud is wrong !!!
                     z = np.zeros(tlv_numObj, dtype="int16")
 
                     for objectNum in range(tlv_numObj):
@@ -510,7 +409,7 @@ class RadarParser:
 
                 if remainingBytes > 0:
                     self._buffer[:remainingBytes] = self._buffer[
-                        shiftSize : self._length
+                        shiftSize: self._length
                     ]
 
                 self._buffer[remainingBytes:] = np.zeros(
@@ -530,36 +429,6 @@ class RadarParser:
     # ------------------------------------------------------------------
     # PLOT UPDATE
     # ------------------------------------------------------------------
-
-    def update_without_filter(self, cur_detObj, cur_s) -> tuple[int, dict]:
-        """
-        Liest neue Radardaten ein und aktualisiert den Scatter-Plot.
-
-        Der Plot wird nur aktualisiert, wenn ein vollständiges Radar-Paket gelesen
-        wurde. Wenn gerade kein vollständiges Paket verfügbar ist, bleibt der letzte
-        Plot-Zustand erhalten. Dadurch verschwinden Messpunkte nicht sofort zwischen
-        zwei Radarframes.
-
-        Returns:
-            int: 1, wenn ein gültiges Datenpaket verarbeitet wurde, sonst 0.
-        """
-        dataOk, cur_detObj = self.readAndParseData16xx()
-
-        if dataOk:
-            if cur_detObj.get("numObj", 0) > 0:
-                x = -cur_detObj["x"]
-                y = cur_detObj["y"]
-
-                cur_s.setData(x, y)
-            else:
-                # Nur leeren, wenn ein gültiger Frame kam, aber keine Objekte enthält.
-                cur_s.setData([], [])
-
-        # Wichtig: Nicht bei dataOk == 0 leeren.
-        QtWidgets.QApplication.processEvents()
-
-        return dataOk, cur_detObj
-
     def update_with_filter(
         self, cur_detObj, cur_s, cur_visualizationFilter: PointCloudLowPassFilter
     ) -> tuple[int, dict]:
@@ -574,16 +443,12 @@ class RadarParser:
         Returns:
             int: 1, wenn ein gültiges Datenpaket verarbeitet wurde, sonst 0.
         """
-
         dataOk, cur_detObj = self.readAndParseData16xx()
 
         if dataOk:
             if cur_detObj.get("numObj", 0) > 0:
                 raw_x = -cur_detObj["x"]
                 raw_y = cur_detObj["y"]
-                # raw_z = cur_detObj["z"]  # Parameter existiert definitiv
-
-                # z wird auch gefiltert:
 
                 # Nur die Visualisierung glätten. detObj und frameData enthalten
                 # weiterhin die unveränderten Rohdaten des Radars.

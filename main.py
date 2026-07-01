@@ -12,7 +12,7 @@ logging.basicConfig(level=logging.INFO)
 
 
 # Name der Radar-Konfigurationsdatei
-configFileName = "1642config.cfg"
+configFileName = "1642config.cfg" # profileCfg 0 77 447 7 40 0 0 100 1 64 2000 0 0 30
 radar_parser = RadarParser(configFileName)
 
 # Qt-Anwendung für den Plot erzeugen.
@@ -21,19 +21,7 @@ app = QtWidgets.QApplication([])
 # Plot konfigurieren.
 pg.setConfigOption("background", "w")
 
-# 3D Darstellung:
-# pg.mkQApp()
-# view = gl.GLViewWidget()
-# view.show()
-# ## create three grids, add each to the view
-# xgrid = gl.GLGridItem()
-# ygrid = gl.GLGridItem()
-# zgrid = gl.GLGridItem()
-# view.addItem(xgrid)
-# view.addItem(ygrid)
-# view.addItem(zgrid)
-
-win = pg.GraphicsLayoutWidget(title="2D scatter plot")
+win = pg.GraphicsLayoutWidget(title="2D scatter plot AWR1642")
 p = win.addPlot()
 
 p.setXRange(-0.5, 0.5)
@@ -55,7 +43,6 @@ visualizationFilter = PointCloudLowPassFilter(
 )
 
 win.show()
-
 
 # Speicher für die letzten Frames.
 # TODO: in die __init__?
@@ -89,10 +76,10 @@ while True:
         logging.info("\nBeende Programm sauber...")
 
         try:
-            radar_parser.send_cli_command("sensorStop", delay=0.3, timeout=1.0)
+            radar_parser.send_stop_command(delay=0.3)
             time.sleep(0.3)
 
-            radar_parser.reset_buffers()
+            radar_parser.reset_dataport_parser_buffers()
 
         except Exception as error:
             logging.error("Fehler beim Stoppen des Sensors:", error)

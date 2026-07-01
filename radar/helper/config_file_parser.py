@@ -53,26 +53,26 @@ def parseConfigFile(configFileName) -> dict:
         if splitWords[0] == "profileCfg":
             profileCfg_dict = parse_profile_cfg(splitWords)
 
-            # startFreq = int(float(splitWords[2]))
-            # idleTime = int(splitWords[3])
-            # rampEndTime = float(splitWords[5])
-            # freqSlopeConst = float(splitWords[8])
-            # numAdcSamples = int(splitWords[10])
-            #
-            # numAdcSamplesRoundTo2 = 1
-            # while numAdcSamples > numAdcSamplesRoundTo2:
-            #     numAdcSamplesRoundTo2 *= 2
-            #
-            # digOutSampleRate = int(splitWords[11])
+            startFreq = int(float(splitWords[2]))
+            idleTime = int(splitWords[3])
+            rampEndTime = float(splitWords[5])
+            freqSlopeConst = float(splitWords[8])
+            numAdcSamples = int(splitWords[10])
+
+            numAdcSamplesRoundTo2 = 1
+            while numAdcSamples > numAdcSamplesRoundTo2:
+                numAdcSamplesRoundTo2 *= 2
+
+            digOutSampleRate = int(splitWords[11])
             profileFound = True
 
         elif splitWords[0] == "frameCfg":
             frameCfg_dict = parse_frame_cfg(splitWords)
 
-            # chirpStartIdx = int(splitWords[1])
-            # chirpEndIdx = int(splitWords[2])
-            # numLoops = int(splitWords[3])
-            # numChirpsPerFrame = (chirpEndIdx - chirpStartIdx + 1) * numLoops
+            chirpStartIdx = int(splitWords[1])
+            chirpEndIdx = int(splitWords[2])
+            numLoops = int(splitWords[3])
+            numChirpsPerFrame = (chirpEndIdx - chirpStartIdx + 1) * numLoops
 
             frameFound = True
 

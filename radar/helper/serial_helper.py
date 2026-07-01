@@ -12,6 +12,7 @@ def serial_port_closer(port_to_close: serial.Serial):
 
 
 def reset_serialport_buffer(port_to_reset: serial.Serial):
+    """ resets serial port input buffer """
     try:
         port_to_reset.reset_input_buffer()
     except Exception as e:
