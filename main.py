@@ -66,8 +66,6 @@ while True:
 
         lastDebugTime = debug_output(radar_parser, dataOk, currentIndex, detObj, lastDebugTime, 1)
 
-        # TODO: -----------------------------------------------------!!!!
-        # ----------------------------------------------------------!!!!
         QtWidgets.QApplication.processEvents()
         time.sleep(0.03)
 

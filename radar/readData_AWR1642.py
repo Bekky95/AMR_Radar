@@ -1,3 +1,5 @@
+from typing import Any
+
 import serial
 import time
 import numpy as np
@@ -193,7 +195,24 @@ class RadarParser:
         self._Dataport.reset_output_buffer()
         self._resetParserBuffer()
 
+    def _read_dataport_buffer(self) -> tuple[np.typing.NDArray[np.uint8], int]:
+        """
+        reads Dataport Buffer, converts it to np.ndarray
+        :return: byteVec, byteCount
+        """
+        readBuffer = self._Dataport.read(size=self._Dataport.in_waiting)
+        if readBuffer is None:
+            raise ValueError("Data buffer empty")
+
+        byteVec = np.frombuffer(readBuffer, dtype="uint8")
+        byteCount = len(byteVec)
+
+        return byteVec, byteCount
+
     # PUBLIC-METHODS------------------------------------------------------------------
+    def get_dataport_in_waiting(self):
+        return self._Dataport.in_waiting
+
     def close_serialports(self):
         serial_port_closer(self._Dataport)
         serial_port_closer(self._CLIport)
@@ -256,14 +275,7 @@ class RadarParser:
         detObj = {}
         tlv_type = 0
 
-        # TODO: Buffer lesen in eigene Funktion und alles auf
-        # TODO: Klassenvariablen übergeben
-        readBuffer = self._Dataport.read(self._Dataport.in_waiting)
-        if readBuffer is None:
-            raise ValueError("Data buffer empty")
-
-        byteVec = np.frombuffer(readBuffer, dtype="uint8")
-        byteCount = len(byteVec)
+        byteVec, byteCount = self._read_dataport_buffer()
 
         if (self._length + byteCount) < self._buffer_size:
             self._buffer[self._length: self._length + byteCount] = byteVec[:byteCount]

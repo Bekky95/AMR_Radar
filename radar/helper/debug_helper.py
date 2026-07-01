@@ -20,7 +20,7 @@ def debug_output(
     if time.time() - lastDebugTime > sec:
         numObj = detObj.get("numObj", 0) if isinstance(detObj, dict) else 0
         logging.debug(
-            f"bytes={radar_parser._Dataport.in_waiting}, "
+            f"bytes={radar_parser.get_dataport_in_waiting()}, "
             f"dataOk={dataOk}, "
             f"numObj={numObj}, "
             f"frames={currentIndex}"
