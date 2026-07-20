@@ -452,12 +452,13 @@ class RadarParser:
                 # Nur die Visualisierung glätten. detObj und frameData enthalten
                 # weiterhin die unveränderten Rohdaten des Radars.
                 filtered_x, filtered_y = cur_visualizationFilter.apply(raw_x, raw_y)
-                cur_s.setData(filtered_x, filtered_y)  # , filtered_z)
             else:
                 # Einen gültigen leeren Frame an den Filter weitergeben. Dadurch
                 # verschwinden bestätigte Punkte erst nach max_missing_frames und
                 # die Darstellung flackert bei einzelnen Aussetzern weniger.
                 filtered_x, filtered_y = cur_visualizationFilter.apply([], [])
-                cur_s.setData(filtered_x, filtered_y)
+
+                cur_detObj["x"] = filtered_x
+                cur_detObj["y"] = filtered_y
 
         return dataOk, cur_detObj
