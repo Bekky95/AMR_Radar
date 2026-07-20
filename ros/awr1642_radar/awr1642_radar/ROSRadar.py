@@ -19,6 +19,7 @@ from std_msgs.msg import Float32
 from std_msgs.msg import Header
 import sensor_msgs_py.point_cloud2 as pc2
 from awr1642_radar.radar.readData_AWR1642 import RadarParser
+from awr1642_radar.radar.helper.fixingdata import PointCloudLowPassFilter
 
 
 class AWR1642Node(Node):
@@ -35,10 +36,14 @@ class AWR1642Node(Node):
 
         self.get_logger().info("initialisiere Radar")
         self._awr1642Radar = RadarParser(self._config_file)
-        self.get_logger().info("Radar initialisiert. Gerät sendet Daten")
 
-        self._cli = None
-        self._data = None
+        self.filter = PointCloudLowPassFilter(
+            alpha=0.35,
+            max_match_distance=0.20,
+            min_confirmations=2,
+            max_missing_frames=1,
+        )
+        self.get_logger().info("Radar initialisiert. Gerät sendet Daten")
 
         # Publisher
         self._pub = self.create_publisher(PointCloud2, "/radar", 10)
@@ -48,7 +53,7 @@ class AWR1642Node(Node):
         self.create_timer(timer_period, self._timer_cb)
 
     def _timer_cb(self):
-        data_ok, det_obj = self._awr1642Radar.readAndParseData16xx()
+        data_ok, det_obj = self._awr1642Radar.update_with_filter(self.filter)
         if not data_ok or det_obj.get("numObj", 0) == 0:
             return
         self._currentFrame = det_obj
