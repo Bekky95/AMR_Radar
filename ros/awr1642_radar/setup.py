@@ -22,6 +22,6 @@ setup(
         ],
     },
     entry_points={
-        "console_scripts": ["awr1642 = awr1642_radar.radar:main"],
+        "console_scripts": ["awr1642 = awr1642_radar.ROSRadar:main"],
     },
 )

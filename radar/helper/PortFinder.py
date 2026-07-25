@@ -5,7 +5,18 @@ import re
 
 import logging
 
+
 def autodetect(ports: list):
+    """
+    TODO: Change pattern, if your Computer uses different portnumbers than COM7/8 || ACM0/1
+
+    uses port-syntax according to correct os
+    COMn --> Win
+    ACMn --> Linux
+
+    :param ports: List of available ports
+    :return: correct Data/Config Port
+    """
     dataPattern = r"(COM7|ACM1)"
     configPattern = r"(COM8|ACM0)"
     result = {}
@@ -22,6 +33,10 @@ def autodetect(ports: list):
 
 def serial_ports():
     """Lists serial port names
+
+    Source - https://stackoverflow.com/a/14224477
+    Posted by tfeldmann, modified by community. See post 'Timeline' for change history
+    Retrieved 2026-06-03, License - CC BY-SA 3.0
 
     :raises EnvironmentError:
         On unsupported or unknown platforms
@@ -47,17 +62,3 @@ def serial_ports():
         except (OSError, serial.SerialException):
             pass
     return autodetect(result)
-
-
-if __name__ == "__main__":
-    port_list = serial_ports()
-    print(port_list)
-
-    # if len(port_list) > 1:
-    #     for port in range(1, len(port_list)):
-    #         if int(port_list[port-1][-1])+1 == int(port_list[port][-1]):
-    #             print(f"aufsteigend")
-    #         else:
-    #             print("Nö")
-    # else:
-    #     print("Not enough Ports")
