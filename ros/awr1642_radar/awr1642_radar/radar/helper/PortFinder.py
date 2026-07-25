@@ -28,6 +28,8 @@ def autodetect(ports: list):
             result["data"] = port
             logging.info(f"data {port}")
 
+    if "config" not in result or "data" not in result:
+        raise IOError("No Device Connected")
     return result
 
 
